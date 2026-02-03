@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
 import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle, Search, ScrollText } from 'lucide-react';
+import { VoiceAdd } from './VoiceAdd';
 
 interface Props {
   items: CollectionItem[];
@@ -614,6 +615,7 @@ export function CollectionGrid({ items: initialItems }: Props) {
           <option value="title">Title A-Z</option>
           <option value="year">Year (Newest)</option>
         </select>
+        <VoiceAdd onAdded={() => window.location.reload()} />
       </div>
 
       <p className="text-zinc-500 text-sm mb-4">
