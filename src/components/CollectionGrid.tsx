@@ -3,15 +3,36 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Tag, Disc3 } from 'lucide-react';
+import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Props {
   items: CollectionItem[];
 }
 
-export function CollectionGrid({ items }: Props) {
+interface ReleaseDetails {
+  id: number;
+  title: string;
+  artists: { name: string }[];
+  year: number;
+  images?: { type: string; uri: string; uri150: string }[];
+  tracklist?: { position: string; title: string; duration: string }[];
+  labels?: { name: string; catno: string }[];
+  formats?: { name: string; qty: string; descriptions?: string[] }[];
+  genres?: string[];
+  styles?: string[];
+  notes?: string;
+  uri?: string;
+}
+
+export function CollectionGrid({ items: initialItems }: Props) {
+  const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'added' | 'artist' | 'title' | 'year'>('added');
+  const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
+  const [releaseDetails, setReleaseDetails] = useState<ReleaseDetails | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [removing, setRemoving] = useState<number | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const filtered = items
     .filter((item) => {
@@ -38,8 +59,243 @@ export function CollectionGrid({ items }: Props) {
       }
     });
 
+  const handleOpenDetails = async (item: CollectionItem) => {
+    setSelectedItem(item);
+    setReleaseDetails(null);
+    setCurrentImageIndex(0);
+    setLoadingDetails(true);
+    
+    try {
+      const res = await fetch(`/api/release/${item.basic_information.id}`);
+      const data = await res.json();
+      setReleaseDetails(data);
+    } catch (error) {
+      console.error('Failed to load details:', error);
+    }
+    setLoadingDetails(false);
+  };
+
+  const handleRemove = async (item: CollectionItem) => {
+    if (!confirm('Remove this record from your collection?')) return;
+    
+    setRemoving(item.instance_id);
+    try {
+      await fetch('/api/collection/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          releaseId: item.basic_information.id,
+          instanceId: item.instance_id,
+          folderId: 1,
+        }),
+      });
+      setItems(items.filter(i => i.instance_id !== item.instance_id));
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('Failed to remove:', error);
+    }
+    setRemoving(null);
+  };
+
+  const images = releaseDetails?.images || [];
+  const nextImage = () => setCurrentImageIndex((i) => (i + 1) % images.length);
+  const prevImage = () => setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
+
   return (
     <div>
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex justify-between items-center z-10">
+              <h2 className="text-xl font-bold truncate pr-4">
+                {selectedItem.basic_information.title}
+              </h2>
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="text-zinc-500 hover:text-white p-2"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {loadingDetails ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                </div>
+              ) : releaseDetails ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Images */}
+                  <div>
+                    <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden">
+                      {images.length > 0 ? (
+                        <>
+                          <Image
+                            src={images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150}
+                            alt={releaseDetails.title}
+                            fill
+                            className="object-contain"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                          />
+                          {images.length > 1 && (
+                            <>
+                              <button
+                                onClick={prevImage}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+                              >
+                                <ChevronLeft className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={nextImage}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+                              >
+                                <ChevronRight className="w-5 h-5" />
+                              </button>
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                                {currentImageIndex + 1} / {images.length}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Disc3 className="w-24 h-24 text-zinc-700" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Thumbnails */}
+                    {images.length > 1 && (
+                      <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+                        {images.map((img, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentImageIndex(i)}
+                            className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-colors ${
+                              i === currentImageIndex ? 'border-purple-500' : 'border-transparent'
+                            }`}
+                          >
+                            <Image
+                              src={img.uri150 || img.uri}
+                              alt={`Image ${i + 1}`}
+                              width={64}
+                              height={64}
+                              className="object-cover w-full h-full"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-2xl font-bold">{releaseDetails.title}</p>
+                      <p className="text-lg text-purple-400">
+                        {releaseDetails.artists?.map(a => a.name).join(', ')}
+                      </p>
+                      {releaseDetails.year && (
+                        <p className="text-zinc-500">{releaseDetails.year}</p>
+                      )}
+                    </div>
+
+                    {releaseDetails.labels && releaseDetails.labels.length > 0 && (
+                      <div>
+                        <p className="text-sm text-zinc-500 mb-1">Label</p>
+                        <p className="text-zinc-300">
+                          {releaseDetails.labels.map(l => `${l.name} - ${l.catno}`).join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {releaseDetails.formats && releaseDetails.formats.length > 0 && (
+                      <div>
+                        <p className="text-sm text-zinc-500 mb-1">Format</p>
+                        <p className="text-zinc-300">
+                          {releaseDetails.formats.map(f => 
+                            `${f.qty}x ${f.name}${f.descriptions ? ' (' + f.descriptions.join(', ') + ')' : ''}`
+                          ).join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {(releaseDetails.genres || releaseDetails.styles) && (
+                      <div className="flex flex-wrap gap-2">
+                        {releaseDetails.genres?.map((g, i) => (
+                          <span key={`g-${i}`} className="bg-purple-500/20 text-purple-400 px-2 py-1 rounded text-sm">
+                            {g}
+                          </span>
+                        ))}
+                        {releaseDetails.styles?.map((s, i) => (
+                          <span key={`s-${i}`} className="bg-zinc-800 text-zinc-400 px-2 py-1 rounded text-sm">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tracklist */}
+                    {releaseDetails.tracklist && releaseDetails.tracklist.length > 0 && (
+                      <div>
+                        <p className="text-sm text-zinc-500 mb-2 flex items-center gap-2">
+                          <Music className="w-4 h-4" />
+                          Tracklist
+                        </p>
+                        <div className="bg-zinc-800 rounded-lg p-3 max-h-60 overflow-y-auto">
+                          {releaseDetails.tracklist.map((track, i) => (
+                            <div
+                              key={i}
+                              className="flex justify-between py-1 border-b border-zinc-700 last:border-0"
+                            >
+                              <span className="text-zinc-300">
+                                <span className="text-zinc-500 mr-2">{track.position || i + 1}.</span>
+                                {track.title}
+                              </span>
+                              {track.duration && (
+                                <span className="text-zinc-500 text-sm">{track.duration}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-4 border-t border-zinc-800">
+                      <a
+                        href={`https://www.discogs.com/release/${releaseDetails.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-lg transition-colors"
+                      >
+                        <ExternalLink className="w-5 h-5" />
+                        View on Discogs
+                      </a>
+                      <button
+                        onClick={() => handleRemove(selectedItem)}
+                        disabled={removing === selectedItem.instance_id}
+                        className="inline-flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-3 rounded-lg transition-colors"
+                      >
+                        {removing === selectedItem.instance_id ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-5 h-5" />
+                        )}
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-zinc-500 text-center py-12">Failed to load details</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-4 mb-6">
         <input
           type="text"
@@ -62,7 +318,11 @@ export function CollectionGrid({ items }: Props) {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filtered.map((item) => (
-          <RecordCard key={item.instance_id} item={item} />
+          <RecordCard 
+            key={item.instance_id} 
+            item={item} 
+            onOpenDetails={() => handleOpenDetails(item)}
+          />
         ))}
       </div>
 
@@ -75,7 +335,7 @@ export function CollectionGrid({ items }: Props) {
   );
 }
 
-function RecordCard({ item }: { item: CollectionItem }) {
+function RecordCard({ item, onOpenDetails }: { item: CollectionItem; onOpenDetails: () => void }) {
   const info = item.basic_information;
   const artist = info.artists[0]?.name || 'Unknown Artist';
   const format = info.formats[0];
@@ -84,11 +344,13 @@ function RecordCard({ item }: { item: CollectionItem }) {
     : 'Vinyl';
   
   const mediaCondition = item.notes?.find((n) => n.field_id === 1)?.value;
-  const sleeveCondition = item.notes?.find((n) => n.field_id === 2)?.value;
 
   return (
     <div className="group bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800 hover:border-purple-500/50 transition-all hover:shadow-lg hover:shadow-purple-500/10">
-      <div className="aspect-square relative bg-zinc-800">
+      <div 
+        className="aspect-square relative bg-zinc-800 cursor-pointer"
+        onClick={onOpenDetails}
+      >
         {info.cover_image ? (
           <Image
             src={info.cover_image}
@@ -102,6 +364,11 @@ function RecordCard({ item }: { item: CollectionItem }) {
             <Disc3 className="w-16 h-16 text-zinc-700" />
           </div>
         )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+          <span className="text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-3 py-1 rounded-full">
+            View Details
+          </span>
+        </div>
       </div>
       
       <div className="p-4">
@@ -126,9 +393,21 @@ function RecordCard({ item }: { item: CollectionItem }) {
           )}
         </div>
         
-        <p className="text-xs text-zinc-500 mt-2 truncate" title={formatDesc}>
-          {formatDesc}
-        </p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-zinc-500 truncate flex-1" title={formatDesc}>
+            {formatDesc}
+          </p>
+          <a
+            href={`https://www.discogs.com/release/${info.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-zinc-500 hover:text-purple-400 p-1 transition-colors"
+            title="View on Discogs"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
       </div>
     </div>
   );
