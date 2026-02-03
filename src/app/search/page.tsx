@@ -245,22 +245,22 @@ export default function SearchPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="mb-8 space-y-3">
+      <form onSubmit={handleSearch} className="mb-6 space-y-3">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for artist, album, or label..."
+            placeholder="Search artist or album..."
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-12 pr-4 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="grid grid-cols-2 gap-2">
           <select
             value={genre}
             onChange={(e) => setGenre(e.target.value)}
-            className="flex-1 min-w-[120px] bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
           >
             {GENRES.map((g) => (
               <option key={g} value={g}>{g}</option>
@@ -269,123 +269,112 @@ export default function SearchPage() {
           <select
             value={decade}
             onChange={(e) => setDecade(e.target.value)}
-            className="flex-1 min-w-[120px] bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
           >
             {DECADES.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Search className="w-5 h-5" />
-            )}
-            <span className="hidden sm:inline">Search</span>
-          </button>
         </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Search className="w-5 h-5" />
+          )}
+          Search
+        </button>
       </form>
 
       {results.length > 0 && (
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {results.map((result) => {
             const isCheckingOrAdding = checkingDuplicate === result.id || addingCollection === result.id;
             
             return (
               <div
                 key={result.id}
-                className="bg-zinc-900 rounded-lg border border-zinc-800 p-3 hover:border-zinc-700 transition-colors"
+                className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden hover:border-zinc-700 transition-colors"
               >
-                <div className="flex gap-3">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 relative rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
-                    {result.thumb ? (
-                      <Image
-                        src={result.thumb}
-                        alt={result.title}
-                        fill
-                        className="object-cover"
-                        sizes="80px"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Disc3 className="w-6 h-6 text-zinc-700" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm sm:text-base line-clamp-2">{result.title}</h3>
-                    <div className="flex flex-wrap gap-1 mt-1 text-xs">
-                      {result.year && (
-                        <span className="bg-zinc-800 px-2 py-0.5 rounded">{result.year}</span>
-                      )}
-                      {result.format?.slice(0, 2).map((f, i) => (
-                        <span key={i} className="bg-zinc-800 px-2 py-0.5 rounded">{f}</span>
-                      ))}
-                      {result.country && (
-                        <span className="bg-zinc-800 px-2 py-0.5 rounded hidden sm:inline">{result.country}</span>
-                      )}
+                {/* Album Art */}
+                <div className="aspect-square relative bg-zinc-800">
+                  {result.thumb ? (
+                    <Image
+                      src={result.cover_image || result.thumb}
+                      alt={result.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Disc3 className="w-12 h-12 text-zinc-700" />
                     </div>
-                    {result.label && result.label.length > 0 && (
-                      <p className="text-zinc-500 text-xs mt-1 truncate hidden sm:block">
-                        {result.label.slice(0, 2).join(', ')}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                <div className="flex gap-2 mt-3">
-                  {addedToCollection.has(result.id) ? (
-                    <span className="flex-1 inline-flex items-center justify-center gap-2 text-green-400 py-2 text-sm">
-                      <Library className="w-4 h-4" />
-                      Added
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleAddToCollection(result.id)}
-                      disabled={isCheckingOrAdding}
-                      className="flex-1 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white py-2 rounded-lg text-sm transition-colors"
+                {/* Info */}
+                <div className="p-3">
+                  <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-2">{result.title}</h3>
+                  <div className="flex flex-wrap gap-1 text-xs mb-3">
+                    {result.year && (
+                      <span className="bg-zinc-800 px-2 py-0.5 rounded">{result.year}</span>
+                    )}
+                    {result.format?.slice(0, 1).map((f, i) => (
+                      <span key={i} className="bg-zinc-800 px-2 py-0.5 rounded">{f}</span>
+                    ))}
+                  </div>
+                  
+                  {/* Buttons */}
+                  <div className="flex gap-1">
+                    {addedToCollection.has(result.id) ? (
+                      <span className="flex-1 inline-flex items-center justify-center text-green-400 py-1.5 text-xs">
+                        <Library className="w-3 h-3 mr-1" />
+                        Added
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleAddToCollection(result.id)}
+                        disabled={isCheckingOrAdding}
+                        className="flex-1 inline-flex items-center justify-center bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white py-1.5 rounded text-xs transition-colors"
+                      >
+                        {isCheckingOrAdding ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Plus className="w-3 h-3" />
+                        )}
+                      </button>
+                    )}
+                    {addedToWant.has(result.id) ? (
+                      <span className="flex-1 inline-flex items-center justify-center text-purple-400 py-1.5 text-xs">
+                        <Heart className="w-3 h-3 fill-current" />
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleAddToWantlist(result.id)}
+                        disabled={addingWant === result.id}
+                        className="flex-1 inline-flex items-center justify-center bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-1.5 rounded text-xs transition-colors"
+                      >
+                        {addingWant === result.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Heart className="w-3 h-3" />
+                        )}
+                      </button>
+                    )}
+                    <a
+                      href={`https://www.discogs.com/release/${result.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center text-zinc-500 hover:text-white py-1.5 px-2 text-xs transition-colors"
                     >
-                      {isCheckingOrAdding ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Plus className="w-4 h-4" />
-                      )}
-                      Collection
-                    </button>
-                  )}
-                  {addedToWant.has(result.id) ? (
-                    <span className="flex-1 inline-flex items-center justify-center gap-2 text-purple-400 py-2 text-sm">
-                      <Heart className="w-4 h-4 fill-current" />
-                      Wanted
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleAddToWantlist(result.id)}
-                      disabled={addingWant === result.id}
-                      className="flex-1 inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-2 rounded-lg text-sm transition-colors"
-                    >
-                      {addingWant === result.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Heart className="w-4 h-4" />
-                      )}
-                      Want
-                    </button>
-                  )}
-                  <a
-                    href={`https://www.discogs.com/release/${result.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center text-zinc-400 hover:text-white p-2 text-sm transition-colors"
-                    title="View on Discogs"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
               </div>
             );
