@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Mic, MicOff, Loader2, Plus, X, Disc3, Search } from 'lucide-react';
+import { Mic, MicOff, Loader2, Plus, X, Disc3, Search, AlertTriangle } from 'lucide-react';
 
 interface SearchResult {
   id: number;
@@ -37,6 +37,7 @@ export function VoiceAdd({ onAdded }: { onAdded?: () => void }) {
   const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ releaseId: number; title: string; duplicates: any[] } | null>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -116,7 +117,40 @@ export function VoiceAdd({ onAdded }: { onAdded?: () => void }) {
     setIsSearching(false);
   };
 
-  const handleAdd = async (releaseId: number) => {
+  const handleAdd = async (releaseId: number, skipDuplicateCheck = false) => {
+    const result = results.find(r => r.id === releaseId);
+    if (!result) return;
+
+    // Extract artist and title from "Artist - Title" format
+    const parts = result.title.split(' - ');
+    const artist = parts[0] || '';
+    const title = parts.slice(1).join(' - ') || result.title;
+
+    // Check for duplicates first (unless skipping)
+    if (!skipDuplicateCheck && artist) {
+      setIsAdding(releaseId);
+      try {
+        const res = await fetch('/api/collection/check-duplicate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artist, title }),
+        });
+        const data = await res.json();
+        
+        if (data.hasDuplicate) {
+          setIsAdding(null);
+          setDuplicateWarning({
+            releaseId,
+            title: result.title,
+            duplicates: data.duplicates,
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('Duplicate check failed:', err);
+      }
+    }
+
     setIsAdding(releaseId);
     try {
       await fetch('/api/collection/add', {
@@ -125,6 +159,7 @@ export function VoiceAdd({ onAdded }: { onAdded?: () => void }) {
         body: JSON.stringify({ releaseId }),
       });
       setAddedIds(new Set([...addedIds, releaseId]));
+      setDuplicateWarning(null);
       onAdded?.();
     } catch (err) {
       console.error('Failed to add:', err);
@@ -290,6 +325,61 @@ export function VoiceAdd({ onAdded }: { onAdded?: () => void }) {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Warning Modal */}
+      {duplicateWarning && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
+          <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="bg-yellow-500/20 p-3 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-1">Possible Duplicate</h3>
+                <p className="text-zinc-400 text-sm">
+                  You may already have this album:
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-zinc-800 rounded-lg p-4 mb-4">
+              <p className="font-medium text-white">{duplicateWarning.title}</p>
+              <div className="mt-2 space-y-1">
+                {duplicateWarning.duplicates.map((dup: any) => (
+                  <p key={dup.id} className="text-sm text-zinc-500">
+                    • {dup.format} ({dup.year || 'Unknown year'})
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-zinc-400 text-sm mb-4">
+              Add another copy anyway?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDuplicateWarning(null)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleAdd(duplicateWarning.releaseId, true)}
+                disabled={isAdding !== null}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isAdding ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Plus className="w-5 h-5" />
+                )}
+                Add Anyway
+              </button>
+            </div>
           </div>
         </div>
       )}
