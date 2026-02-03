@@ -1,5 +1,6 @@
 import { PublicCollectionView } from '@/components/PublicCollectionView';
 import { Disc3 } from 'lucide-react';
+import { headers } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,58 +8,62 @@ interface PageProps {
   params: Promise<{ username: string }>;
 }
 
-async function getPublicCollection(username: string, page = 1, perPage = 100) {
-  // Public Discogs API - no auth needed for public collections
+async function getAuthenticatedCollection(baseUrl: string, page = 1, perPage = 100) {
+  // Use our authenticated API proxy
   const res = await fetch(
-    `https://api.discogs.com/users/${username}/collection/folders/0/releases?page=${page}&per_page=${perPage}&sort=added&sort_order=desc`,
-    {
-      headers: { 'User-Agent': 'VinylVault/1.0' },
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    }
+    `${baseUrl}/api/share/collection?page=${page}&perPage=${perPage}`,
+    { cache: 'no-store' }
   );
   
   if (!res.ok) {
-    return { items: [], pagination: { pages: 0, items: 0 }, error: true };
+    return { items: [], pagination: { pages: 0, items: 0 }, username: '', error: true };
   }
   
   const data = await res.json();
   return {
-    items: data.releases || [],
+    items: data.items || [],
     pagination: data.pagination || { pages: 0, items: 0 },
+    username: data.username || '',
     error: false,
   };
 }
 
 export default async function PublicSharePage({ params }: PageProps) {
   const { username } = await params;
+  const headersList = await headers();
+  const host = headersList.get('host') || 'localhost:3000';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
   
-  // Fetch all pages (up to 500 records for public view)
+  // Fetch all pages (up to 500 records)
   const allItems = [];
   let page = 1;
   let hasMore = true;
   let totalItems = 0;
   let error = false;
+  let actualUsername = username;
   
   while (hasMore && page <= 5) {
-    const result = await getPublicCollection(username, page, 100);
+    const result = await getAuthenticatedCollection(baseUrl, page, 100);
     if (result.error) {
       error = true;
       break;
     }
     allItems.push(...result.items);
     totalItems = result.pagination.items;
+    actualUsername = result.username || username;
     hasMore = page < result.pagination.pages;
     page++;
   }
 
-  if (error) {
+  if (error || allItems.length === 0) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
         <div className="text-center">
           <Disc3 className="w-16 h-16 mx-auto mb-4 text-zinc-700" />
-          <h1 className="text-2xl font-bold mb-2">Collection Not Found</h1>
+          <h1 className="text-2xl font-bold mb-2">Collection Not Available</h1>
           <p className="text-zinc-500">
-            Either this user doesn't exist or their collection is private.
+            Unable to load this collection. Please try again later.
           </p>
         </div>
       </div>
@@ -71,7 +76,7 @@ export default async function PublicSharePage({ params }: PageProps) {
         <div className="flex items-center gap-4 mb-8">
           <Disc3 className="w-12 h-12 text-purple-500" />
           <div>
-            <h1 className="text-3xl font-bold">{username}'s Vinyl Collection</h1>
+            <h1 className="text-3xl font-bold">{actualUsername}'s Vinyl Collection</h1>
             <p className="text-zinc-500">{totalItems} records • Powered by VinylVault</p>
           </div>
         </div>
