@@ -33,8 +33,39 @@ interface DuplicateWarning {
   duplicates: Duplicate[];
 }
 
+const GENRES = [
+  'All Genres',
+  'Rock',
+  'Electronic',
+  'Pop',
+  'Jazz',
+  'Funk / Soul',
+  'Classical',
+  'Hip Hop',
+  'Reggae',
+  'Latin',
+  'Blues',
+  'Folk, World, & Country',
+  'Stage & Screen',
+  'Non-Music',
+];
+
+const DECADES = [
+  'All Decades',
+  '2020s',
+  '2010s',
+  '2000s',
+  '1990s',
+  '1980s',
+  '1970s',
+  '1960s',
+  '1950s',
+];
+
 export default function SearchPage() {
   const [query, setQuery] = useState('');
+  const [genre, setGenre] = useState('');
+  const [decade, setDecade] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingWant, setAddingWant] = useState<number | null>(null);
@@ -50,7 +81,11 @@ export default function SearchPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const params = new URLSearchParams({ q: query });
+      if (genre && genre !== 'All Genres') params.append('genre', genre);
+      if (decade && decade !== 'All Decades') params.append('decade', decade);
+      
+      const res = await fetch(`/api/search?${params.toString()}`);
       const data = await res.json();
       setResults(data.results || []);
     } catch (error) {
@@ -210,7 +245,7 @@ export default function SearchPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="mb-8">
+      <form onSubmit={handleSearch} className="mb-8 space-y-4">
         <div className="flex gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
@@ -234,6 +269,28 @@ export default function SearchPage() {
             )}
             Search
           </button>
+        </div>
+        
+        <div className="flex gap-4">
+          <select
+            value={genre}
+            onChange={(e) => setGenre(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+          >
+            {GENRES.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+          
+          <select
+            value={decade}
+            onChange={(e) => setDecade(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+          >
+            {DECADES.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </div>
       </form>
 

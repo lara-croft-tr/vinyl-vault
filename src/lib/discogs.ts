@@ -133,9 +133,33 @@ export async function removeFromCollection(folderId: number, releaseId: number, 
   );
 }
 
-export async function searchReleases(query: string, type = 'release'): Promise<BasicInfo[]> {
+export async function searchReleases(
+  query: string, 
+  options: { type?: string; genre?: string; decade?: string } = {}
+): Promise<BasicInfo[]> {
+  const { type = 'release', genre, decade } = options;
+  
+  const params = new URLSearchParams({
+    q: query,
+    type,
+    format: 'Vinyl',
+    per_page: '30',
+  });
+  
+  if (genre) {
+    params.append('genre', genre);
+  }
+  
+  if (decade) {
+    // Decade comes as "1980s", we need to search year range
+    const startYear = parseInt(decade.replace('s', ''), 10);
+    if (!isNaN(startYear)) {
+      params.append('year', `${startYear}-${startYear + 9}`);
+    }
+  }
+  
   const res = await fetch(
-    `${DISCOGS_BASE}/database/search?q=${encodeURIComponent(query)}&type=${type}&format=Vinyl&per_page=20`,
+    `${DISCOGS_BASE}/database/search?${params.toString()}`,
     { headers }
   );
   const data = await res.json();
