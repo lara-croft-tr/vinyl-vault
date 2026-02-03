@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle, Search } from 'lucide-react';
 
 interface Props {
   items: CollectionItem[];
@@ -266,10 +266,6 @@ export function CollectionGrid({ items: initialItems }: Props) {
                     <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden">
                       {images.length > 0 ? (
                         <>
-                          <div 
-                            className="absolute inset-0 cursor-zoom-in"
-                            onClick={() => setLightboxImage(images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150)}
-                          />
                           <Image
                             src={images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150}
                             alt={releaseDetails.title}
@@ -280,22 +276,33 @@ export function CollectionGrid({ items: initialItems }: Props) {
                           {images.length > 1 && (
                             <>
                               <button
-                                onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                                onClick={prevImage}
                                 className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-20"
                               >
                                 <ChevronLeft className="w-5 h-5" />
                               </button>
                               <button
-                                onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                                onClick={nextImage}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-20"
                               >
                                 <ChevronRight className="w-5 h-5" />
                               </button>
-                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full z-20">
-                                {currentImageIndex + 1} / {images.length}
-                              </div>
                             </>
                           )}
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+                            {images.length > 1 && (
+                              <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                                {currentImageIndex + 1} / {images.length}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setLightboxImage(images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150)}
+                              className="bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full transition-colors"
+                              title="View full size"
+                            >
+                              <Search className="w-4 h-4" />
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
