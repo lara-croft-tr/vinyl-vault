@@ -153,7 +153,7 @@ export function PublicCollectionView({ items, username }: Props) {
                       {images.length > 0 ? (
                         <>
                           <div 
-                            className="absolute inset-0 cursor-zoom-in z-10"
+                            className="absolute inset-0 cursor-zoom-in"
                             onClick={() => setLightboxImage(images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150)}
                           />
                           <Image
@@ -165,13 +165,13 @@ export function PublicCollectionView({ items, username }: Props) {
                           />
                           {images.length > 1 && (
                             <>
-                              <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full">
+                              <button onClick={(e) => { e.stopPropagation(); prevImage(); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-20">
                                 <ChevronLeft className="w-5 h-5" />
                               </button>
-                              <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full">
+                              <button onClick={(e) => { e.stopPropagation(); nextImage(); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-20">
                                 <ChevronRight className="w-5 h-5" />
                               </button>
-                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full z-20">
                                 {currentImageIndex + 1} / {images.length}
                               </div>
                             </>
