@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem } from '@/lib/discogs';
-import { Calendar, Disc3, X, ExternalLink, Music, ChevronLeft, ChevronRight, Loader2, Search, MicVocal } from 'lucide-react';
+import { Calendar, Disc3, X, ExternalLink, Music, ChevronLeft, ChevronRight, Loader2, Search, ScrollText } from 'lucide-react';
 
 interface Props {
   items: CollectionItem[];
@@ -194,7 +194,7 @@ export function PublicCollectionView({ items, username }: Props) {
           <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
               <div className="flex items-center gap-3">
-                <MicVocal className="w-5 h-5 text-purple-500" />
+                <ScrollText className="w-5 h-5 text-purple-500" />
                 <div>
                   <h3 className="font-semibold">{lyricsModal.title}</h3>
                   <p className="text-sm text-zinc-400">{lyricsModal.artist}</p>
@@ -214,7 +214,7 @@ export function PublicCollectionView({ items, username }: Props) {
                 <pre className="whitespace-pre-wrap font-sans text-zinc-300 leading-relaxed">{lyrics}</pre>
               ) : lyricsFallback ? (
                 <div className="text-center py-8">
-                  <MicVocal className="w-12 h-12 mx-auto mb-4 text-zinc-600" />
+                  <ScrollText className="w-12 h-12 mx-auto mb-4 text-zinc-600" />
                   <p className="text-zinc-400 mb-6">Lyrics not found in database</p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     {lyricsFallback.geniusUrl && (
@@ -385,7 +385,7 @@ export function PublicCollectionView({ items, username }: Props) {
                               </span>
                               <div className="flex items-center gap-2">
                                 {track.duration && <span className="text-zinc-500 text-sm">{track.duration}</span>}
-                                <MicVocal className="w-4 h-4 text-zinc-600 group-hover:text-purple-400 transition-colors" />
+                                <ScrollText className="w-4 h-4 text-zinc-600 group-hover:text-purple-400 transition-colors" />
                               </div>
                             </button>
                           ))}
