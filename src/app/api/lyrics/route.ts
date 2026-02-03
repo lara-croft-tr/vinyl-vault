@@ -19,12 +19,27 @@ export async function GET(request: Request) {
     .replace(/\s*\(.*?\)\s*/g, '')
     .trim();
   
+  const searchQuery = encodeURIComponent(`${cleanArtist} ${cleanTitle} lyrics`);
+  const fallback = {
+    lyrics: null,
+    searchUrl: `https://www.google.com/search?q=${searchQuery}`,
+    geniusUrl: `https://genius.com/search?q=${searchQuery}`,
+  };
+  
   try {
-    // Try lyrics.ovh first
+    // Try lyrics.ovh with 5 second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     const res = await fetch(
       `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`,
-      { next: { revalidate: 86400 } } // Cache for 24 hours
+      { 
+        signal: controller.signal,
+        cache: 'force-cache',
+      }
     );
+    
+    clearTimeout(timeoutId);
     
     if (res.ok) {
       const data = await res.json();
@@ -37,19 +52,10 @@ export async function GET(request: Request) {
     }
     
     // Not found - return search URL as fallback
-    const searchQuery = encodeURIComponent(`${cleanArtist} ${cleanTitle} lyrics`);
-    return NextResponse.json({ 
-      lyrics: null,
-      searchUrl: `https://www.google.com/search?q=${searchQuery}`,
-      geniusUrl: `https://genius.com/search?q=${searchQuery}`,
-    });
+    return NextResponse.json(fallback);
     
   } catch (error) {
     console.error('Lyrics fetch error:', error);
-    const searchQuery = encodeURIComponent(`${artist} ${title} lyrics`);
-    return NextResponse.json({ 
-      lyrics: null,
-      searchUrl: `https://www.google.com/search?q=${searchQuery}`,
-    });
+    return NextResponse.json(fallback);
   }
 }
