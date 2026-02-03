@@ -151,7 +151,7 @@ export function CollectionGrid({ items: initialItems }: Props) {
       {/* Lightbox for full-size image */}
       {lightboxImage && (
         <div 
-          className="fixed inset-0 bg-black/95 flex items-center justify-center z-[70] cursor-zoom-out"
+          className="fixed inset-0 bg-black/95 flex items-center justify-center z-[70]"
           onClick={() => setLightboxImage(null)}
         >
           <button
@@ -160,13 +160,48 @@ export function CollectionGrid({ items: initialItems }: Props) {
           >
             <X className="w-8 h-8" />
           </button>
+          
+          {/* Lightbox carousel arrows */}
+          {releaseDetails?.images && releaseDetails.images.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const imgs = releaseDetails.images!;
+                  const newIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
+                  setCurrentImageIndex(newIndex);
+                  setLightboxImage(imgs[newIndex]?.uri || imgs[newIndex]?.uri150);
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full z-10"
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const imgs = releaseDetails.images!;
+                  const newIndex = (currentImageIndex + 1) % imgs.length;
+                  setCurrentImageIndex(newIndex);
+                  setLightboxImage(imgs[newIndex]?.uri || imgs[newIndex]?.uri150);
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full z-10"
+              >
+                <ChevronRight className="w-8 h-8" />
+              </button>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full z-10">
+                {currentImageIndex + 1} / {releaseDetails.images.length}
+              </div>
+            </>
+          )}
+          
           <Image
             src={lightboxImage}
             alt="Full size"
             fill
-            className="object-contain p-8"
+            className="object-contain p-16"
             sizes="100vw"
             quality={100}
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}
