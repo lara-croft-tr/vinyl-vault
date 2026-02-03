@@ -41,6 +41,7 @@ export function PublicCollectionView({ items, username }: Props) {
   const [releaseDetails, setReleaseDetails] = useState<ReleaseDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const filtered = items
     .filter((item) => {
@@ -103,6 +104,29 @@ export function PublicCollectionView({ items, username }: Props) {
 
   return (
     <div>
+      {/* Lightbox for full-size image */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 bg-black/95 flex items-center justify-center z-[70] cursor-zoom-out"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white p-2 z-10"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <Image
+            src={lightboxImage}
+            alt="Full size"
+            fill
+            className="object-contain p-8"
+            sizes="100vw"
+            quality={100}
+          />
+        </div>
+      )}
+
       {/* Detail Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -128,6 +152,10 @@ export function PublicCollectionView({ items, username }: Props) {
                     <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden">
                       {images.length > 0 ? (
                         <>
+                          <div 
+                            className="absolute inset-0 cursor-zoom-in z-10"
+                            onClick={() => setLightboxImage(images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150)}
+                          />
                           <Image
                             src={images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150}
                             alt={releaseDetails.title}
