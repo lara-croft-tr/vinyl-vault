@@ -245,22 +245,22 @@ export default function SearchPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="mb-8">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[200px] relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for artist, album, or label..."
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-12 pr-4 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
-            />
-          </div>
+      <form onSubmit={handleSearch} className="mb-8 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search for artist, album, or label..."
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-12 pr-4 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
           <select
             value={genre}
             onChange={(e) => setGenre(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-4 text-white focus:outline-none focus:border-purple-500"
+            className="flex-1 min-w-[120px] bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
           >
             {GENRES.map((g) => (
               <option key={g} value={g}>{g}</option>
@@ -269,7 +269,7 @@ export default function SearchPage() {
           <select
             value={decade}
             onChange={(e) => setDecade(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-4 text-white focus:outline-none focus:border-purple-500"
+            className="flex-1 min-w-[120px] bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
           >
             {DECADES.map((d) => (
               <option key={d} value={d}>{d}</option>
@@ -278,14 +278,14 @@ export default function SearchPage() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-8 py-4 rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Search className="w-5 h-5" />
             )}
-            Search
+            <span className="hidden sm:inline">Search</span>
           </button>
         </div>
       </form>
@@ -298,55 +298,57 @@ export default function SearchPage() {
             return (
               <div
                 key={result.id}
-                className="flex gap-4 bg-zinc-900 rounded-lg border border-zinc-800 p-4 hover:border-zinc-700 transition-colors"
+                className="bg-zinc-900 rounded-lg border border-zinc-800 p-3 hover:border-zinc-700 transition-colors"
               >
-                <div className="w-20 h-20 relative rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
-                  {result.thumb ? (
-                    <Image
-                      src={result.thumb}
-                      alt={result.title}
-                      fill
-                      className="object-cover"
-                      sizes="80px"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Disc3 className="w-8 h-8 text-zinc-700" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{result.title}</h3>
-                  <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                    {result.year && (
-                      <span className="bg-zinc-800 px-2 py-1 rounded">{result.year}</span>
-                    )}
-                    {result.format?.slice(0, 2).map((f, i) => (
-                      <span key={i} className="bg-zinc-800 px-2 py-1 rounded">{f}</span>
-                    ))}
-                    {result.country && (
-                      <span className="bg-zinc-800 px-2 py-1 rounded">{result.country}</span>
+                <div className="flex gap-3">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 relative rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
+                    {result.thumb ? (
+                      <Image
+                        src={result.thumb}
+                        alt={result.title}
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Disc3 className="w-6 h-6 text-zinc-700" />
+                      </div>
                     )}
                   </div>
-                  {result.label && result.label.length > 0 && (
-                    <p className="text-zinc-500 text-xs mt-2 truncate">
-                      {result.label.slice(0, 2).join(', ')}
-                    </p>
-                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm sm:text-base line-clamp-2">{result.title}</h3>
+                    <div className="flex flex-wrap gap-1 mt-1 text-xs">
+                      {result.year && (
+                        <span className="bg-zinc-800 px-2 py-0.5 rounded">{result.year}</span>
+                      )}
+                      {result.format?.slice(0, 2).map((f, i) => (
+                        <span key={i} className="bg-zinc-800 px-2 py-0.5 rounded">{f}</span>
+                      ))}
+                      {result.country && (
+                        <span className="bg-zinc-800 px-2 py-0.5 rounded hidden sm:inline">{result.country}</span>
+                      )}
+                    </div>
+                    {result.label && result.label.length > 0 && (
+                      <p className="text-zinc-500 text-xs mt-1 truncate hidden sm:block">
+                        {result.label.slice(0, 2).join(', ')}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex gap-2 mt-3">
                   {addedToCollection.has(result.id) ? (
-                    <span className="inline-flex items-center gap-2 text-green-400 px-4 py-2 text-sm">
+                    <span className="flex-1 inline-flex items-center justify-center gap-2 text-green-400 py-2 text-sm">
                       <Library className="w-4 h-4" />
-                      In Collection
+                      Added
                     </span>
                   ) : (
                     <button
                       onClick={() => handleAddToCollection(result.id)}
                       disabled={isCheckingOrAdding}
-                      className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                      className="flex-1 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white py-2 rounded-lg text-sm transition-colors"
                     >
                       {isCheckingOrAdding ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -357,15 +359,15 @@ export default function SearchPage() {
                     </button>
                   )}
                   {addedToWant.has(result.id) ? (
-                    <span className="inline-flex items-center gap-2 text-purple-400 px-4 py-2 text-sm">
+                    <span className="flex-1 inline-flex items-center justify-center gap-2 text-purple-400 py-2 text-sm">
                       <Heart className="w-4 h-4 fill-current" />
-                      In Wantlist
+                      Wanted
                     </span>
                   ) : (
                     <button
                       onClick={() => handleAddToWantlist(result.id)}
                       disabled={addingWant === result.id}
-                      className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                      className="flex-1 inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-2 rounded-lg text-sm transition-colors"
                     >
                       {addingWant === result.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -379,10 +381,10 @@ export default function SearchPage() {
                     href={`https://www.discogs.com/release/${result.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-zinc-400 hover:text-white px-4 py-2 text-sm transition-colors"
+                    className="inline-flex items-center justify-center text-zinc-400 hover:text-white p-2 text-sm transition-colors"
+                    title="View on Discogs"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    View
                   </a>
                 </div>
               </div>
