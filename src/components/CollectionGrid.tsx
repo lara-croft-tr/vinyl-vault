@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle, Search } from 'lucide-react';
+import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle, Search, MicVocal } from 'lucide-react';
 
 interface Props {
   items: CollectionItem[];
@@ -65,6 +65,10 @@ export function CollectionGrid({ items: initialItems }: Props) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [confirmRemove, setConfirmRemove] = useState<CollectionItem | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lyricsModal, setLyricsModal] = useState<{ artist: string; title: string } | null>(null);
+  const [lyrics, setLyrics] = useState<string | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [lyricsFallback, setLyricsFallback] = useState<{ searchUrl?: string; geniusUrl?: string } | null>(null);
 
   const filtered = items
     .filter((item) => {
@@ -146,6 +150,28 @@ export function CollectionGrid({ items: initialItems }: Props) {
   const nextImage = () => setCurrentImageIndex((i) => (i + 1) % images.length);
   const prevImage = () => setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
 
+  const fetchLyrics = async (artist: string, title: string) => {
+    setLyricsModal({ artist, title });
+    setLyrics(null);
+    setLyricsFallback(null);
+    setLyricsLoading(true);
+    
+    try {
+      const res = await fetch(`/api/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+      const data = await res.json();
+      
+      if (data.lyrics) {
+        setLyrics(data.lyrics);
+      } else {
+        setLyricsFallback({ searchUrl: data.searchUrl, geniusUrl: data.geniusUrl });
+      }
+    } catch (error) {
+      console.error('Failed to fetch lyrics:', error);
+      setLyricsFallback({ searchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${artist} ${title} lyrics`)}` });
+    }
+    setLyricsLoading(false);
+  };
+
   return (
     <div>
       {/* Lightbox for full-size image */}
@@ -203,6 +229,65 @@ export function CollectionGrid({ items: initialItems }: Props) {
             quality={100}
             onClick={(e) => e.stopPropagation()}
           />
+        </div>
+      )}
+
+      {/* Lyrics Modal */}
+      {lyricsModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4">
+          <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <MicVocal className="w-5 h-5 text-purple-500" />
+                <div>
+                  <h3 className="font-semibold">{lyricsModal.title}</h3>
+                  <p className="text-sm text-zinc-400">{lyricsModal.artist}</p>
+                </div>
+              </div>
+              <button onClick={() => setLyricsModal(null)} className="text-zinc-500 hover:text-white p-2">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {lyricsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                </div>
+              ) : lyrics ? (
+                <pre className="whitespace-pre-wrap font-sans text-zinc-300 leading-relaxed">{lyrics}</pre>
+              ) : lyricsFallback ? (
+                <div className="text-center py-8">
+                  <MicVocal className="w-12 h-12 mx-auto mb-4 text-zinc-600" />
+                  <p className="text-zinc-400 mb-6">Lyrics not found in database</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    {lyricsFallback.geniusUrl && (
+                      <a
+                        href={lyricsFallback.geniusUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-lg font-medium transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Search Genius
+                      </a>
+                    )}
+                    {lyricsFallback.searchUrl && (
+                      <a
+                        href={lyricsFallback.searchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                      >
+                        <Search className="w-4 h-4" />
+                        Google Search
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
 
@@ -423,21 +508,29 @@ export function CollectionGrid({ items: initialItems }: Props) {
                         <p className="text-sm text-zinc-500 mb-2 flex items-center gap-2">
                           <Music className="w-4 h-4" />
                           Tracklist
+                          <span className="text-xs text-zinc-600">(click for lyrics)</span>
                         </p>
                         <div className="bg-zinc-800 rounded-lg p-3 max-h-60 overflow-y-auto">
                           {releaseDetails.tracklist.map((track, i) => (
-                            <div
+                            <button
                               key={i}
-                              className="flex justify-between py-1 border-b border-zinc-700 last:border-0"
+                              onClick={() => fetchLyrics(
+                                releaseDetails.artists?.[0]?.name || 'Unknown',
+                                track.title
+                              )}
+                              className="w-full flex justify-between py-2 px-2 -mx-2 border-b border-zinc-700 last:border-0 hover:bg-zinc-700/50 rounded transition-colors text-left group"
                             >
-                              <span className="text-zinc-300">
+                              <span className="text-zinc-300 group-hover:text-white">
                                 <span className="text-zinc-500 mr-2">{track.position || i + 1}.</span>
                                 {track.title}
                               </span>
-                              {track.duration && (
-                                <span className="text-zinc-500 text-sm">{track.duration}</span>
-                              )}
-                            </div>
+                              <div className="flex items-center gap-2">
+                                {track.duration && (
+                                  <span className="text-zinc-500 text-sm">{track.duration}</span>
+                                )}
+                                <MicVocal className="w-4 h-4 text-zinc-600 group-hover:text-purple-400 transition-colors" />
+                              </div>
+                            </button>
                           ))}
                         </div>
                       </div>
