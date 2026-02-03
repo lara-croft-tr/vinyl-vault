@@ -367,7 +367,7 @@ export function PublicCollectionView({ items, username }: Props) {
                       <div>
                         <p className="text-sm text-zinc-500 mb-2 flex items-center gap-2">
                           <Music className="w-4 h-4" /> Tracklist
-                          <span className="text-xs text-zinc-600">(click for lyrics)</span>
+                          <span className="text-xs text-purple-400/60">(tap song for lyrics)</span>
                         </p>
                         <div className="bg-zinc-800 rounded-lg p-3 max-h-60 overflow-y-auto">
                           {releaseDetails.tracklist.map((track, i) => (
