@@ -24,9 +24,39 @@ interface ReleaseDetails {
   uri?: string;
 }
 
+const GENRES = [
+  'All Genres',
+  'Rock',
+  'Electronic',
+  'Pop',
+  'Jazz',
+  'Funk / Soul',
+  'Classical',
+  'Hip Hop',
+  'Reggae',
+  'Latin',
+  'Blues',
+  'Folk, World, & Country',
+  'Stage & Screen',
+];
+
+const DECADES = [
+  'All Decades',
+  '2020s',
+  '2010s',
+  '2000s',
+  '1990s',
+  '1980s',
+  '1970s',
+  '1960s',
+  '1950s',
+];
+
 export function CollectionGrid({ items: initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState('');
+  const [genre, setGenre] = useState('All Genres');
+  const [decade, setDecade] = useState('All Decades');
   const [sortBy, setSortBy] = useState<'added' | 'artist' | 'title' | 'year'>('added');
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
   const [releaseDetails, setReleaseDetails] = useState<ReleaseDetails | null>(null);
@@ -39,11 +69,25 @@ export function CollectionGrid({ items: initialItems }: Props) {
     .filter((item) => {
       const q = search.toLowerCase();
       const info = item.basic_information;
-      return (
+      
+      // Text search
+      const matchesSearch = !q || 
         info.title.toLowerCase().includes(q) ||
         info.artists.some((a) => a.name.toLowerCase().includes(q)) ||
-        info.labels.some((l) => l.name.toLowerCase().includes(q))
-      );
+        info.labels.some((l) => l.name.toLowerCase().includes(q));
+      
+      // Genre filter
+      const matchesGenre = genre === 'All Genres' || 
+        info.genres?.some((g) => g.toLowerCase().includes(genre.toLowerCase()));
+      
+      // Decade filter
+      let matchesDecade = decade === 'All Decades';
+      if (!matchesDecade && info.year) {
+        const startYear = parseInt(decade.replace('s', ''), 10);
+        matchesDecade = info.year >= startYear && info.year < startYear + 10;
+      }
+      
+      return matchesSearch && matchesGenre && matchesDecade;
     })
     .sort((a, b) => {
       const infoA = a.basic_information;
@@ -358,14 +402,32 @@ export function CollectionGrid({ items: initialItems }: Props) {
         </div>
       )}
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-wrap gap-4 mb-6">
         <input
           type="text"
           placeholder="Search your collection..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+          className="flex-1 min-w-[200px] bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
         />
+        <select
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+          className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+        >
+          {GENRES.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+        <select
+          value={decade}
+          onChange={(e) => setDecade(e.target.value)}
+          className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+        >
+          {DECADES.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
