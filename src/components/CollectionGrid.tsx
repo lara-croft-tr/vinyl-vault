@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 
 interface Props {
   items: CollectionItem[];
@@ -33,6 +33,7 @@ export function CollectionGrid({ items: initialItems }: Props) {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [removing, setRemoving] = useState<number | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [confirmRemove, setConfirmRemove] = useState<CollectionItem | null>(null);
 
   const filtered = items
     .filter((item) => {
@@ -76,8 +77,6 @@ export function CollectionGrid({ items: initialItems }: Props) {
   };
 
   const handleRemove = async (item: CollectionItem) => {
-    if (!confirm('Remove this record from your collection?')) return;
-    
     setRemoving(item.instance_id);
     try {
       await fetch('/api/collection/remove', {
@@ -91,6 +90,7 @@ export function CollectionGrid({ items: initialItems }: Props) {
       });
       setItems(items.filter(i => i.instance_id !== item.instance_id));
       setSelectedItem(null);
+      setConfirmRemove(null);
     } catch (error) {
       console.error('Failed to remove:', error);
     }
@@ -103,6 +103,73 @@ export function CollectionGrid({ items: initialItems }: Props) {
 
   return (
     <div>
+      {/* Remove Confirmation Modal */}
+      {confirmRemove && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="bg-red-500/20 p-3 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-1">Remove from Collection?</h3>
+                <p className="text-zinc-400 text-sm">
+                  Are you sure you want to remove this record?
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-zinc-800 rounded-lg p-4 mb-4 flex gap-4">
+              <div className="w-16 h-16 relative rounded overflow-hidden bg-zinc-700 flex-shrink-0">
+                {confirmRemove.basic_information.cover_image ? (
+                  <Image
+                    src={confirmRemove.basic_information.thumb || confirmRemove.basic_information.cover_image}
+                    alt={confirmRemove.basic_information.title}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Disc3 className="w-8 h-8 text-zinc-600" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-white">{confirmRemove.basic_information.title}</p>
+                <p className="text-zinc-400 text-sm">
+                  {confirmRemove.basic_information.artists?.[0]?.name || 'Unknown Artist'}
+                </p>
+                <p className="text-zinc-500 text-xs mt-1">
+                  {confirmRemove.basic_information.year || 'Unknown year'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmRemove(null)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRemove(confirmRemove)}
+                disabled={removing !== null}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {removing ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-5 h-5" />
+                )}
+                Yes, Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Detail Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -274,15 +341,10 @@ export function CollectionGrid({ items: initialItems }: Props) {
                         View on Discogs
                       </a>
                       <button
-                        onClick={() => handleRemove(selectedItem)}
-                        disabled={removing === selectedItem.instance_id}
+                        onClick={() => setConfirmRemove(selectedItem)}
                         className="inline-flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-3 rounded-lg transition-colors"
                       >
-                        {removing === selectedItem.instance_id ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-5 h-5" />
-                        )}
+                        <Trash2 className="w-5 h-5" />
                         Remove
                       </button>
                     </div>
