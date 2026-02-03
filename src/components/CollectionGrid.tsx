@@ -58,6 +58,8 @@ export function CollectionGrid({ items: initialItems }: Props) {
   const [genre, setGenre] = useState('All Genres');
   const [decade, setDecade] = useState('All Decades');
   const [sortBy, setSortBy] = useState<'added' | 'artist' | 'title' | 'year'>('added');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
   const [releaseDetails, setReleaseDetails] = useState<ReleaseDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -108,6 +110,17 @@ export function CollectionGrid({ items: initialItems }: Props) {
           return new Date(b.date_added).getTime() - new Date(a.date_added).getTime();
       }
     });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedItems = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setCurrentPage(1);
+  };
 
   const handleOpenDetails = async (item: CollectionItem) => {
     setSelectedItem(item);
@@ -380,10 +393,10 @@ export function CollectionGrid({ items: initialItems }: Props) {
                   <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
                 </div>
               ) : releaseDetails ? (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
                   {/* Images */}
-                  <div>
-                    <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden">
+                  <div className="w-full">
+                    <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden w-full max-w-[300px] md:max-w-none mx-auto">
                       {images.length > 0 ? (
                         <>
                           <Image
@@ -570,12 +583,12 @@ export function CollectionGrid({ items: initialItems }: Props) {
           type="text"
           placeholder="Search your collection..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           className="flex-1 min-w-[200px] bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
         />
         <select
           value={genre}
-          onChange={(e) => setGenre(e.target.value)}
+          onChange={(e) => handleFilterChange(setGenre, e.target.value)}
           className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
         >
           {GENRES.map((g) => (
@@ -584,7 +597,7 @@ export function CollectionGrid({ items: initialItems }: Props) {
         </select>
         <select
           value={decade}
-          onChange={(e) => setDecade(e.target.value)}
+          onChange={(e) => handleFilterChange(setDecade, e.target.value)}
           className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
         >
           {DECADES.map((d) => (
@@ -603,8 +616,13 @@ export function CollectionGrid({ items: initialItems }: Props) {
         </select>
       </div>
 
+      <p className="text-zinc-500 text-sm mb-4">
+        Showing {paginatedItems.length} of {filtered.length} records
+        {filtered.length !== items.length && ` (${items.length} total)`}
+      </p>
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {filtered.map((item) => (
+        {paginatedItems.map((item) => (
           <RecordCard 
             key={item.instance_id} 
             item={item} 
@@ -612,6 +630,41 @@ export function CollectionGrid({ items: initialItems }: Props) {
           />
         ))}
       </div>
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-8">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              currentPage === 1
+                ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+            }`}
+          >
+            <ChevronLeft className="w-5 h-5" />
+            Previous
+          </button>
+          
+          <span className="text-zinc-400">
+            Page {currentPage} of {totalPages}
+          </span>
+          
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              currentPage === totalPages
+                ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+            }`}
+          >
+            Next
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-zinc-500">

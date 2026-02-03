@@ -266,10 +266,10 @@ export function PublicCollectionView({ items, username }: Props) {
                   <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
                 </div>
               ) : releaseDetails ? (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
                   {/* Images */}
-                  <div>
-                    <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden">
+                  <div className="w-full">
+                    <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden w-full max-w-[300px] md:max-w-none mx-auto">
                       {images.length > 0 ? (
                         <>
                           <Image
