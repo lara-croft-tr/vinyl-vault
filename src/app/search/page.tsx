@@ -245,9 +245,9 @@ export default function SearchPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="mb-8 space-y-4">
-        <div className="flex gap-4">
-          <div className="flex-1 relative">
+      <form onSubmit={handleSearch} className="mb-8">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px] relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
             <input
               type="text"
@@ -257,6 +257,24 @@ export default function SearchPage() {
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-12 pr-4 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
             />
           </div>
+          <select
+            value={genre}
+            onChange={(e) => setGenre(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-4 text-white focus:outline-none focus:border-purple-500"
+          >
+            {GENRES.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+          <select
+            value={decade}
+            onChange={(e) => setDecade(e.target.value)}
+            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-4 text-white focus:outline-none focus:border-purple-500"
+          >
+            {DECADES.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
           <button
             type="submit"
             disabled={loading}
@@ -269,28 +287,6 @@ export default function SearchPage() {
             )}
             Search
           </button>
-        </div>
-        
-        <div className="flex gap-4">
-          <select
-            value={genre}
-            onChange={(e) => setGenre(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
-          >
-            {GENRES.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
-          
-          <select
-            value={decade}
-            onChange={(e) => setDecade(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
-          >
-            {DECADES.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
         </div>
       </form>
 
