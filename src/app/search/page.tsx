@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Search, Disc3, Heart, Plus, Loader2, ExternalLink } from 'lucide-react';
+import { Search, Disc3, Heart, Plus, Loader2, ExternalLink, Library } from 'lucide-react';
 
 interface SearchResult {
   id: number;
@@ -22,8 +22,10 @@ export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [adding, setAdding] = useState<number | null>(null);
-  const [added, setAdded] = useState<Set<number>>(new Set());
+  const [addingWant, setAddingWant] = useState<number | null>(null);
+  const [addingCollection, setAddingCollection] = useState<number | null>(null);
+  const [addedToWant, setAddedToWant] = useState<Set<number>>(new Set());
+  const [addedToCollection, setAddedToCollection] = useState<Set<number>>(new Set());
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,18 +43,33 @@ export default function SearchPage() {
   };
 
   const handleAddToWantlist = async (releaseId: number) => {
-    setAdding(releaseId);
+    setAddingWant(releaseId);
     try {
       await fetch('/api/wantlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
       });
-      setAdded(new Set([...added, releaseId]));
+      setAddedToWant(new Set([...addedToWant, releaseId]));
     } catch (error) {
       console.error('Failed to add:', error);
     }
-    setAdding(null);
+    setAddingWant(null);
+  };
+
+  const handleAddToCollection = async (releaseId: number) => {
+    setAddingCollection(releaseId);
+    try {
+      await fetch('/api/collection/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ releaseId }),
+      });
+      setAddedToCollection(new Set([...addedToCollection, releaseId]));
+    } catch (error) {
+      console.error('Failed to add:', error);
+    }
+    setAddingCollection(null);
   };
 
   return (
@@ -94,9 +111,6 @@ export default function SearchPage() {
       {results.length > 0 && (
         <div className="space-y-3">
           {results.map((result) => {
-            const isAdding = adding === result.id;
-            const isAdded = added.has(result.id);
-
             return (
               <div
                 key={result.id}
@@ -139,21 +153,40 @@ export default function SearchPage() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  {isAdded ? (
+                  {addedToCollection.has(result.id) ? (
                     <span className="inline-flex items-center gap-2 text-green-400 px-4 py-2 text-sm">
+                      <Library className="w-4 h-4" />
+                      In Collection
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleAddToCollection(result.id)}
+                      disabled={addingCollection === result.id}
+                      className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                    >
+                      {addingCollection === result.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      Collection
+                    </button>
+                  )}
+                  {addedToWant.has(result.id) ? (
+                    <span className="inline-flex items-center gap-2 text-purple-400 px-4 py-2 text-sm">
                       <Heart className="w-4 h-4 fill-current" />
-                      Added
+                      In Wantlist
                     </span>
                   ) : (
                     <button
                       onClick={() => handleAddToWantlist(result.id)}
-                      disabled={isAdding}
+                      disabled={addingWant === result.id}
                       className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm transition-colors"
                     >
-                      {isAdding ? (
+                      {addingWant === result.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Plus className="w-4 h-4" />
+                        <Heart className="w-4 h-4" />
                       )}
                       Want
                     </button>

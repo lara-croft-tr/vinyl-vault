@@ -112,6 +112,27 @@ export async function removeFromWantlist(releaseId: number): Promise<void> {
   });
 }
 
+export async function addToCollection(releaseId: number, folderId = 1): Promise<{ instance_id: number }> {
+  const res = await fetch(
+    `${DISCOGS_BASE}/users/${USERNAME}/collection/folders/${folderId}/releases/${releaseId}`,
+    {
+      method: 'POST',
+      headers,
+    }
+  );
+  return res.json();
+}
+
+export async function removeFromCollection(folderId: number, releaseId: number, instanceId: number): Promise<void> {
+  await fetch(
+    `${DISCOGS_BASE}/users/${USERNAME}/collection/folders/${folderId}/releases/${releaseId}/instances/${instanceId}`,
+    {
+      method: 'DELETE',
+      headers,
+    }
+  );
+}
+
 export async function searchReleases(query: string, type = 'release'): Promise<BasicInfo[]> {
   const res = await fetch(
     `${DISCOGS_BASE}/database/search?q=${encodeURIComponent(query)}&type=${type}&format=Vinyl&per_page=20`,
