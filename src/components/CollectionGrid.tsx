@@ -3,25 +3,14 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Disc3, X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, AlertTriangle, Search, ScrollText } from 'lucide-react';
+import { Calendar, Disc3, ExternalLink, Trash2, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getArtistSortName } from '@/lib/sort-utils';
+import { useArtistTypes } from '@/lib/use-artist-types';
+import { useMasterYears } from '@/lib/use-master-years';
+import { ReleaseDetailModal } from './ReleaseDetailModal';
 
 interface Props {
   items: CollectionItem[];
-}
-
-interface ReleaseDetails {
-  id: number;
-  title: string;
-  artists: { name: string }[];
-  year: number;
-  images?: { type: string; uri: string; uri150: string }[];
-  tracklist?: { position: string; title: string; duration: string }[];
-  labels?: { name: string; catno: string }[];
-  formats?: { name: string; qty: string; descriptions?: string[] }[];
-  genres?: string[];
-  styles?: string[];
-  notes?: string;
-  uri?: string;
 }
 
 const GENRES = [
@@ -57,20 +46,33 @@ export function CollectionGrid({ items: initialItems }: Props) {
   const [search, setSearch] = useState('');
   const [genre, setGenre] = useState('All Genres');
   const [decade, setDecade] = useState('All Decades');
-  const [sortBy, setSortBy] = useState<'added' | 'artist' | 'title' | 'year'>('added');
+  const [yearFilter, setYearFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'added' | 'artist' | 'artistDesc' | 'title' | 'year' | 'originalYear'>('artist');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
-  const [releaseDetails, setReleaseDetails] = useState<ReleaseDetails | null>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   const [removing, setRemoving] = useState<number | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [confirmRemove, setConfirmRemove] = useState<CollectionItem | null>(null);
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [lyricsModal, setLyricsModal] = useState<{ artist: string; title: string } | null>(null);
-  const [lyrics, setLyrics] = useState<string | null>(null);
-  const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [lyricsFallback, setLyricsFallback] = useState<{ searchUrl?: string; geniusUrl?: string } | null>(null);
+
+  // Get unique artist IDs for type detection
+  const uniqueArtists = Array.from(
+    new Map(items.map(i => {
+      const a = i.basic_information.artists[0];
+      return [a?.id, { id: a?.id || 0, name: a?.name || '' }];
+    })).values()
+  ).filter(a => a.id > 0);
+  const { artistTypes, loading: artistTypesLoading } = useArtistTypes(uniqueArtists);
+
+  // Get original release years from master releases
+  const masterItems = items.map(i => ({ masterId: i.basic_information.master_id || 0 }));
+  const { masterYears, loading: masterYearsLoading } = useMasterYears(masterItems);
+
+  // Helper to get original year (master year) or fall back to release year
+  const getOriginalYear = (item: CollectionItem): number => {
+    const masterId = item.basic_information.master_id;
+    if (masterId && masterYears[masterId]) return masterYears[masterId];
+    return item.basic_information.year || 0;
+  };
 
   const filtered = items
     .filter((item) => {
@@ -94,18 +96,32 @@ export function CollectionGrid({ items: initialItems }: Props) {
         matchesDecade = info.year >= startYear && info.year < startYear + 10;
       }
       
-      return matchesSearch && matchesGenre && matchesDecade;
+      // Year filter
+      const matchesYear = !yearFilter || (info.year && info.year.toString() === yearFilter);
+      
+      return matchesSearch && matchesGenre && matchesDecade && matchesYear;
     })
     .sort((a, b) => {
       const infoA = a.basic_information;
       const infoB = b.basic_information;
       switch (sortBy) {
         case 'artist':
-          return infoA.artists[0]?.name.localeCompare(infoB.artists[0]?.name || '');
+        case 'artistDesc': {
+          const nameA = getArtistSortName(infoA.artists[0]?.name || '', artistTypes[infoA.artists[0]?.id] || 'band');
+          const nameB = getArtistSortName(infoB.artists[0]?.name || '', artistTypes[infoB.artists[0]?.id] || 'band');
+          const nameCompare = sortBy === 'artist' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+          // Secondary sort: ascending original release year within same artist
+          if (nameCompare === 0) {
+            return (getOriginalYear(a) || 9999) - (getOriginalYear(b) || 9999);
+          }
+          return nameCompare;
+        }
         case 'title':
           return infoA.title.localeCompare(infoB.title);
         case 'year':
           return (infoB.year || 0) - (infoA.year || 0);
+        case 'originalYear':
+          return (getOriginalYear(b) || 0) - (getOriginalYear(a) || 0);
         default:
           return new Date(b.date_added).getTime() - new Date(a.date_added).getTime();
       }
@@ -122,20 +138,8 @@ export function CollectionGrid({ items: initialItems }: Props) {
     setCurrentPage(1);
   };
 
-  const handleOpenDetails = async (item: CollectionItem) => {
+  const handleOpenDetails = (item: CollectionItem) => {
     setSelectedItem(item);
-    setReleaseDetails(null);
-    setCurrentImageIndex(0);
-    setLoadingDetails(true);
-    
-    try {
-      const res = await fetch(`/api/release/${item.basic_information.id}`);
-      const data = await res.json();
-      setReleaseDetails(data);
-    } catch (error) {
-      console.error('Failed to load details:', error);
-    }
-    setLoadingDetails(false);
   };
 
   const handleRemove = async (item: CollectionItem) => {
@@ -159,151 +163,8 @@ export function CollectionGrid({ items: initialItems }: Props) {
     setRemoving(null);
   };
 
-  const images = releaseDetails?.images || [];
-  const nextImage = () => setCurrentImageIndex((i) => (i + 1) % images.length);
-  const prevImage = () => setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
-
-  const fetchLyrics = async (artist: string, title: string) => {
-    setLyricsModal({ artist, title });
-    setLyrics(null);
-    setLyricsFallback(null);
-    setLyricsLoading(true);
-    
-    try {
-      const res = await fetch(`/api/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
-      const data = await res.json();
-      
-      if (data.lyrics) {
-        setLyrics(data.lyrics);
-      } else {
-        setLyricsFallback({ searchUrl: data.searchUrl, geniusUrl: data.geniusUrl });
-      }
-    } catch (error) {
-      console.error('Failed to fetch lyrics:', error);
-      setLyricsFallback({ searchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${artist} ${title} lyrics`)}` });
-    }
-    setLyricsLoading(false);
-  };
-
   return (
     <div>
-      {/* Lightbox for full-size image */}
-      {lightboxImage && (
-        <div 
-          className="fixed inset-0 bg-black/95 flex items-center justify-center z-[70]"
-          onClick={() => setLightboxImage(null)}
-        >
-          <button
-            onClick={() => setLightboxImage(null)}
-            className="absolute top-4 right-4 text-white/70 hover:text-white p-2 z-10"
-          >
-            <X className="w-8 h-8" />
-          </button>
-          
-          {/* Lightbox carousel arrows */}
-          {releaseDetails?.images && releaseDetails.images.length > 1 && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const imgs = releaseDetails.images!;
-                  const newIndex = (currentImageIndex - 1 + imgs.length) % imgs.length;
-                  setCurrentImageIndex(newIndex);
-                  setLightboxImage(imgs[newIndex]?.uri || imgs[newIndex]?.uri150);
-                }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full z-10"
-              >
-                <ChevronLeft className="w-8 h-8" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const imgs = releaseDetails.images!;
-                  const newIndex = (currentImageIndex + 1) % imgs.length;
-                  setCurrentImageIndex(newIndex);
-                  setLightboxImage(imgs[newIndex]?.uri || imgs[newIndex]?.uri150);
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full z-10"
-              >
-                <ChevronRight className="w-8 h-8" />
-              </button>
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full z-10">
-                {currentImageIndex + 1} / {releaseDetails.images.length}
-              </div>
-            </>
-          )}
-          
-          <Image
-            src={lightboxImage}
-            alt="Full size"
-            fill
-            className="object-contain p-16"
-            sizes="100vw"
-            quality={100}
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-
-      {/* Lyrics Modal */}
-      {lyricsModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4">
-          <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="flex items-center gap-3">
-                <ScrollText className="w-5 h-5 text-purple-500" />
-                <div>
-                  <h3 className="font-semibold">{lyricsModal.title}</h3>
-                  <p className="text-sm text-zinc-400">{lyricsModal.artist}</p>
-                </div>
-              </div>
-              <button onClick={() => setLyricsModal(null)} className="text-zinc-500 hover:text-white p-2">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              {lyricsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-                </div>
-              ) : lyrics ? (
-                <pre className="whitespace-pre-wrap font-sans text-zinc-300 leading-relaxed">{lyrics}</pre>
-              ) : lyricsFallback ? (
-                <div className="text-center py-8">
-                  <ScrollText className="w-12 h-12 mx-auto mb-4 text-zinc-600" />
-                  <p className="text-zinc-400 mb-6">Lyrics not found in database</p>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    {lyricsFallback.geniusUrl && (
-                      <a
-                        href={lyricsFallback.geniusUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-lg font-medium transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Search Genius
-                      </a>
-                    )}
-                    {lyricsFallback.searchUrl && (
-                      <a
-                        href={lyricsFallback.searchUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                      >
-                        <Search className="w-4 h-4" />
-                        Google Search
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Remove Confirmation Modal */}
       {confirmRemove && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4">
@@ -373,209 +234,18 @@ export function CollectionGrid({ items: initialItems }: Props) {
 
       {/* Detail Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-zinc-900 rounded-xl border border-zinc-700 max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex justify-between items-center z-10">
-              <h2 className="text-xl font-bold truncate pr-4">
-                {selectedItem.basic_information.title}
-              </h2>
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="text-zinc-500 hover:text-white p-2"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              {loadingDetails ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-                </div>
-              ) : releaseDetails ? (
-                <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
-                  {/* Images */}
-                  <div className="w-full">
-                    <div className="relative aspect-square bg-zinc-800 rounded-lg overflow-hidden w-full max-w-[300px] md:max-w-none mx-auto">
-                      {images.length > 0 ? (
-                        <>
-                          <Image
-                            src={images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150}
-                            alt={releaseDetails.title}
-                            fill
-                            className="object-contain"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                          />
-                          {images.length > 1 && (
-                            <>
-                              <button
-                                onClick={prevImage}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-20"
-                              >
-                                <ChevronLeft className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={nextImage}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-20"
-                              >
-                                <ChevronRight className="w-5 h-5" />
-                              </button>
-                            </>
-                          )}
-                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
-                            {images.length > 1 && (
-                              <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">
-                                {currentImageIndex + 1} / {images.length}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => setLightboxImage(images[currentImageIndex]?.uri || images[currentImageIndex]?.uri150)}
-                              className="bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full transition-colors"
-                              title="View full size"
-                            >
-                              <Search className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Disc3 className="w-24 h-24 text-zinc-700" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Thumbnails */}
-                    {images.length > 1 && (
-                      <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
-                        {images.map((img, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setCurrentImageIndex(i)}
-                            className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-colors ${
-                              i === currentImageIndex ? 'border-purple-500' : 'border-transparent'
-                            }`}
-                          >
-                            <Image
-                              src={img.uri150 || img.uri}
-                              alt={`Image ${i + 1}`}
-                              width={64}
-                              height={64}
-                              className="object-cover w-full h-full"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-2xl font-bold">{releaseDetails.title}</p>
-                      <p className="text-lg text-purple-400">
-                        {releaseDetails.artists?.map(a => a.name).join(', ')}
-                      </p>
-                      {releaseDetails.year && (
-                        <p className="text-zinc-500">{releaseDetails.year}</p>
-                      )}
-                    </div>
-
-                    {releaseDetails.labels && releaseDetails.labels.length > 0 && (
-                      <div>
-                        <p className="text-sm text-zinc-500 mb-1">Label</p>
-                        <p className="text-zinc-300">
-                          {releaseDetails.labels.map(l => `${l.name} - ${l.catno}`).join(', ')}
-                        </p>
-                      </div>
-                    )}
-
-                    {releaseDetails.formats && releaseDetails.formats.length > 0 && (
-                      <div>
-                        <p className="text-sm text-zinc-500 mb-1">Format</p>
-                        <p className="text-zinc-300">
-                          {releaseDetails.formats.map(f => 
-                            `${f.qty}x ${f.name}${f.descriptions ? ' (' + f.descriptions.join(', ') + ')' : ''}`
-                          ).join(', ')}
-                        </p>
-                      </div>
-                    )}
-
-                    {(releaseDetails.genres || releaseDetails.styles) && (
-                      <div className="flex flex-wrap gap-2">
-                        {releaseDetails.genres?.map((g, i) => (
-                          <span key={`g-${i}`} className="bg-purple-500/20 text-purple-400 px-2 py-1 rounded text-sm">
-                            {g}
-                          </span>
-                        ))}
-                        {releaseDetails.styles?.map((s, i) => (
-                          <span key={`s-${i}`} className="bg-zinc-800 text-zinc-400 px-2 py-1 rounded text-sm">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Tracklist */}
-                    {releaseDetails.tracklist && releaseDetails.tracklist.length > 0 && (
-                      <div>
-                        <p className="text-sm text-zinc-500 mb-2 flex items-center gap-2">
-                          <Music className="w-4 h-4" />
-                          Tracklist
-                          <span className="text-xs text-purple-400/60">(tap song for lyrics)</span>
-                        </p>
-                        <div className="bg-zinc-800 rounded-lg p-3 max-h-60 overflow-y-auto">
-                          {releaseDetails.tracklist.map((track, i) => (
-                            <button
-                              key={i}
-                              onClick={() => fetchLyrics(
-                                releaseDetails.artists?.[0]?.name || 'Unknown',
-                                track.title
-                              )}
-                              className="w-full flex justify-between py-2 px-2 -mx-2 border-b border-zinc-700 last:border-0 hover:bg-zinc-700/50 rounded transition-colors text-left group"
-                            >
-                              <span className="text-zinc-300 group-hover:text-white">
-                                <span className="text-zinc-500 mr-2">{track.position || i + 1}.</span>
-                                {track.title}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {track.duration && (
-                                  <span className="text-zinc-500 text-sm">{track.duration}</span>
-                                )}
-                                <ScrollText className="w-4 h-4 text-zinc-600 group-hover:text-purple-400 transition-colors" />
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-4 border-t border-zinc-800">
-                      <a
-                        href={`https://www.discogs.com/release/${releaseDetails.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 inline-flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-lg transition-colors"
-                      >
-                        <ExternalLink className="w-5 h-5" />
-                        View on Discogs
-                      </a>
-                      <button
-                        onClick={() => setConfirmRemove(selectedItem)}
-                        className="inline-flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-3 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-zinc-500 text-center py-12">Failed to load details</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <ReleaseDetailModal
+          releaseId={selectedItem.basic_information.id}
+          onClose={() => setSelectedItem(null)}
+          basicInfo={{
+            title: selectedItem.basic_information.title,
+            artist: selectedItem.basic_information.artists[0]?.name || 'Unknown Artist',
+            cover_image: selectedItem.basic_information.cover_image,
+            year: selectedItem.basic_information.year,
+          }}
+          showRemoveButton
+          onRemove={() => setConfirmRemove(selectedItem)}
+        />
       )}
 
       <div className="flex flex-wrap gap-4 mb-6">
@@ -604,21 +274,42 @@ export function CollectionGrid({ items: initialItems }: Props) {
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
+        <input
+          type="text"
+          placeholder="Year (e.g. 1977)"
+          value={yearFilter}
+          onChange={(e) => { setYearFilter(e.target.value.replace(/\D/g, '').slice(0, 4)); setCurrentPage(1); }}
+          className="w-[140px] bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+        />
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
         >
           <option value="added">Recently Added</option>
-          <option value="artist">Artist A-Z</option>
+          <option value="artist">Artist A-Z (by surname)</option>
+          <option value="artistDesc">Artist Z-A (by surname)</option>
           <option value="title">Title A-Z</option>
           <option value="year">Year (Newest)</option>
+          <option value="originalYear">Original Release Year</option>
         </select>
       </div>
 
       <p className="text-zinc-500 text-sm mb-4">
         Showing {paginatedItems.length} of {filtered.length} records
         {filtered.length !== items.length && ` (${items.length} total)`}
+        {artistTypesLoading && (
+          <span className="inline-flex items-center gap-1 ml-2 text-purple-400">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Loading artist sort data...
+          </span>
+        )}
+        {masterYearsLoading && (
+          <span className="inline-flex items-center gap-1 ml-2 text-purple-400">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Loading original release years...
+          </span>
+        )}
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

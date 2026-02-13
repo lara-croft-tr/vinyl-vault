@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Search, Disc3, Heart, Plus, Loader2, ExternalLink, Library, AlertTriangle, X } from 'lucide-react';
+import { ReleaseDetailModal } from '@/components/ReleaseDetailModal';
 
 interface SearchResult {
   id: number;
@@ -66,6 +67,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('');
   const [decade, setDecade] = useState('');
+  const [year, setYear] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingWant, setAddingWant] = useState<number | null>(null);
@@ -74,6 +76,7 @@ export default function SearchPage() {
   const [addedToWant, setAddedToWant] = useState<Set<number>>(new Set());
   const [addedToCollection, setAddedToCollection] = useState<Set<number>>(new Set());
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarning | null>(null);
+  const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +86,8 @@ export default function SearchPage() {
     try {
       const params = new URLSearchParams({ q: query });
       if (genre && genre !== 'All Genres') params.append('genre', genre);
-      if (decade && decade !== 'All Decades') params.append('decade', decade);
+      if (year && /^\d{4}$/.test(year)) params.append('year', year);
+      else if (decade && decade !== 'All Decades') params.append('decade', decade);
       
       const res = await fetch(`/api/search?${params.toString()}`);
       const data = await res.json();
@@ -173,8 +177,24 @@ export default function SearchPage() {
     }
   };
 
+  const extractBasicInfo = (result: SearchResult) => {
+    const parts = result.title.split(' - ');
+    const artist = parts.length >= 2 ? parts[0] : '';
+    const title = parts.length >= 2 ? parts.slice(1).join(' - ') : result.title;
+    return { title, artist, cover_image: result.cover_image || result.thumb, year: result.year };
+  };
+
   return (
     <div>
+      {/* Release Detail Modal */}
+      {selectedResult && (
+        <ReleaseDetailModal
+          releaseId={selectedResult.id}
+          onClose={() => setSelectedResult(null)}
+          basicInfo={extractBasicInfo(selectedResult)}
+        />
+      )}
+
       {/* Duplicate Warning Modal */}
       {duplicateWarning && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -256,7 +276,7 @@ export default function SearchPage() {
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-12 pr-4 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <select
             value={genre}
             onChange={(e) => setGenre(e.target.value)}
@@ -268,13 +288,20 @@ export default function SearchPage() {
           </select>
           <select
             value={decade}
-            onChange={(e) => setDecade(e.target.value)}
+            onChange={(e) => { setDecade(e.target.value); if (e.target.value !== 'All Decades') setYear(''); }}
             className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-purple-500"
           >
             {DECADES.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
+          <input
+            type="text"
+            value={year}
+            onChange={(e) => { setYear(e.target.value.replace(/\D/g, '').slice(0, 4)); if (e.target.value) setDecade('All Decades'); }}
+            placeholder="Year (e.g. 1977)"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+          />
         </div>
         <button
           type="submit"
@@ -301,13 +328,13 @@ export default function SearchPage() {
                 className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden hover:border-zinc-700 transition-colors"
               >
                 {/* Album Art */}
-                <div className="aspect-square relative bg-zinc-800">
+                <div className="aspect-square relative bg-zinc-800 cursor-pointer" onClick={() => setSelectedResult(result)}>
                   {result.thumb ? (
                     <Image
                       src={result.cover_image || result.thumb}
                       alt={result.title}
                       fill
-                      className="object-cover"
+                      className="object-cover hover:scale-105 transition-transform duration-300"
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
                     />
                   ) : (
@@ -319,7 +346,7 @@ export default function SearchPage() {
 
                 {/* Info */}
                 <div className="p-3">
-                  <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-2">{result.title}</h3>
+                  <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-2 cursor-pointer hover:text-purple-400 transition-colors" onClick={() => setSelectedResult(result)}>{result.title}</h3>
                   <div className="flex flex-wrap gap-1 text-xs mb-3">
                     {result.year && (
                       <span className="bg-zinc-800 px-2 py-0.5 rounded">{result.year}</span>

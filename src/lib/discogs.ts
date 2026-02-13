@@ -135,9 +135,9 @@ export async function removeFromCollection(folderId: number, releaseId: number, 
 
 export async function searchReleases(
   query: string, 
-  options: { type?: string; genre?: string; decade?: string } = {}
+  options: { type?: string; genre?: string; decade?: string; year?: string } = {}
 ): Promise<BasicInfo[]> {
-  const { type = 'release', genre, decade } = options;
+  const { type = 'release', genre, decade, year } = options;
   
   const params = new URLSearchParams({
     q: query,
@@ -150,7 +150,9 @@ export async function searchReleases(
     params.append('genre', genre);
   }
   
-  if (decade) {
+  if (year) {
+    params.append('year', year);
+  } else if (decade) {
     // Decade comes as "1980s", we need to search year range
     const startYear = parseInt(decade.replace('s', ''), 10);
     if (!isNaN(startYear)) {

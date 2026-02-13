@@ -25,6 +25,8 @@ export function StatsView({ items }: Props) {
     loaded: false,
   });
   const [loadingValues, setLoadingValues] = useState(false);
+  const [sampleSize, setSampleSize] = useState<number>(20);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Calculate genre stats
   const genreStats = items.reduce((acc, item) => {
@@ -139,10 +141,12 @@ export function StatsView({ items }: Props) {
     let totalLow = 0;
     let totalMid = 0;
     let totalHigh = 0;
-    let count = 0;
+    let priceCount = 0;
+    let processed = 0;
 
-    // Sample up to 20 items for value estimation (API rate limits)
-    const sampleItems = items.slice(0, 20);
+    // Sample items for value estimation
+    const sampleItems = sampleSize === -1 ? items : items.slice(0, sampleSize);
+    setLoadingProgress(0);
     
     for (const item of sampleItems) {
       try {
@@ -150,28 +154,29 @@ export function StatsView({ items }: Props) {
         const data = await res.json();
         if (data.lowest_price?.value) {
           totalLow += data.lowest_price.value;
-          // Estimate mid and high based on typical markup
           totalMid += data.lowest_price.value * 1.3;
           totalHigh += data.lowest_price.value * 1.8;
-          count++;
+          priceCount++;
         }
       } catch (e) {
         // Skip failed items
       }
+      processed++;
+      setLoadingProgress(processed);
       // Small delay to avoid rate limiting
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 100));
     }
 
     // Extrapolate to full collection
-    if (count > 0) {
-      const avgLow = totalLow / count;
-      const avgMid = totalMid / count;
-      const avgHigh = totalHigh / count;
+    if (priceCount > 0) {
+      const avgLow = totalLow / priceCount;
+      const avgMid = totalMid / priceCount;
+      const avgHigh = totalHigh / priceCount;
       setValueData({
         totalLow: avgLow * items.length,
         totalMid: avgMid * items.length,
         totalHigh: avgHigh * items.length,
-        itemCount: count,
+        itemCount: sampleItems.length,
         loaded: true,
       });
     }
@@ -223,19 +228,31 @@ export function StatsView({ items }: Props) {
             <span className="text-lg font-semibold">Estimated Collection Value</span>
           </div>
           {!valueData.loaded && !loadingValues && (
-            <button
-              onClick={loadValues}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-            >
-              Calculate Value
-            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={sampleSize}
+                onChange={(e) => setSampleSize(parseInt(e.target.value))}
+                className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+              >
+                <option value={20}>20 records</option>
+                <option value={50}>50 records</option>
+                <option value={100}>100 records</option>
+                <option value={-1}>All ({items.length})</option>
+              </select>
+              <button
+                onClick={loadValues}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+              >
+                Calculate Value
+              </button>
+            </div>
           )}
         </div>
         
         {loadingValues ? (
           <div className="flex items-center gap-3 text-zinc-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Fetching market prices... (sampling {Math.min(20, items.length)} records)</span>
+            <span>Fetching market prices... ({sampleSize === -1 ? `all ${items.length}` : `sampling ${Math.min(sampleSize, items.length)} of ${items.length}`} records) — {loadingProgress}/{sampleSize === -1 ? items.length : Math.min(sampleSize, items.length)}</span>
           </div>
         ) : valueData.loaded ? (
           <div className="grid grid-cols-3 gap-4">
@@ -263,7 +280,7 @@ export function StatsView({ items }: Props) {
         )}
         {valueData.loaded && (
           <p className="text-zinc-600 text-xs mt-3">
-            *Estimated based on sampling {valueData.itemCount} records and extrapolating to full collection
+            *{valueData.itemCount >= items.length ? `Based on all ${items.length} records` : `Based on ${valueData.itemCount} of ${items.length} records sampled`}{valueData.itemCount < items.length ? ', extrapolated to full collection' : ''}
           </p>
         )}
       </div>

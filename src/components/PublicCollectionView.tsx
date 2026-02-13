@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem } from '@/lib/discogs';
 import { Calendar, Disc3, X, ExternalLink, Music, ChevronLeft, ChevronRight, Loader2, Search, ScrollText } from 'lucide-react';
+import { getArtistSortName } from '@/lib/sort-utils';
+import { useArtistTypes } from '@/lib/use-artist-types';
 
 interface Props {
   items: CollectionItem[];
@@ -36,7 +38,7 @@ export function PublicCollectionView({ items, username }: Props) {
   const [search, setSearch] = useState('');
   const [genre, setGenre] = useState('All Genres');
   const [decade, setDecade] = useState('All Decades');
-  const [sortBy, setSortBy] = useState<'added' | 'artist' | 'title' | 'year'>('added');
+  const [sortBy, setSortBy] = useState<'added' | 'artist' | 'title' | 'year'>('artist');
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
   const [releaseDetails, setReleaseDetails] = useState<ReleaseDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -46,6 +48,14 @@ export function PublicCollectionView({ items, username }: Props) {
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsFallback, setLyricsFallback] = useState<{ searchUrl?: string; geniusUrl?: string } | null>(null);
+
+  const uniqueArtists = Array.from(
+    new Map(items.map(i => {
+      const a = i.basic_information.artists[0];
+      return [a?.id, { id: a?.id || 0, name: a?.name || '' }];
+    })).values()
+  ).filter(a => a.id > 0);
+  const { artistTypes, loading: artistTypesLoading } = useArtistTypes(uniqueArtists);
 
   const filtered = items
     .filter((item) => {
@@ -73,7 +83,7 @@ export function PublicCollectionView({ items, username }: Props) {
       const infoB = b.basic_information;
       switch (sortBy) {
         case 'artist':
-          return infoA.artists[0]?.name.localeCompare(infoB.artists[0]?.name || '');
+          return getArtistSortName(infoA.artists[0]?.name || '', artistTypes[infoA.artists[0]?.id] || 'band').localeCompare(getArtistSortName(infoB.artists[0]?.name || '', artistTypes[infoB.artists[0]?.id] || 'band'));
         case 'title':
           return infoA.title.localeCompare(infoB.title);
         case 'year':
@@ -431,13 +441,21 @@ export function PublicCollectionView({ items, username }: Props) {
         </select>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500">
           <option value="added">Recently Added</option>
-          <option value="artist">Artist A-Z</option>
+          <option value="artist">Artist A-Z (by surname)</option>
           <option value="title">Title A-Z</option>
           <option value="year">Year (Newest)</option>
         </select>
       </div>
 
-      <p className="text-zinc-500 text-sm mb-4">Showing {filtered.length} of {items.length} records</p>
+      <p className="text-zinc-500 text-sm mb-4">
+        Showing {filtered.length} of {items.length} records
+        {artistTypesLoading && (
+          <span className="inline-flex items-center gap-1 ml-2 text-purple-400">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Loading artist sort data...
+          </span>
+        )}
+      </p>
 
       {/* Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

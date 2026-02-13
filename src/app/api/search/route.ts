@@ -6,13 +6,14 @@ export async function GET(request: Request) {
   const query = searchParams.get('q') || '';
   const genre = searchParams.get('genre') || undefined;
   const decade = searchParams.get('decade') || undefined;
+  const year = searchParams.get('year') || undefined;
   
   if (!query) {
     return NextResponse.json({ results: [] });
   }
   
   try {
-    const results = await searchReleases(query, { genre, decade });
+    const results = await searchReleases(query, { genre, decade, year });
     return NextResponse.json({ results });
   } catch (error) {
     console.error('Search error:', error);
