@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Disc3, ExternalLink, Trash2, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Disc3, ExternalLink, Trash2, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Guitar } from 'lucide-react';
 import { getArtistSortName } from '@/lib/sort-utils';
 import { useArtistTypes } from '@/lib/use-artist-types';
 import { useMasterYears } from '@/lib/use-master-years';
@@ -478,16 +478,28 @@ function RecordCard({ item, onOpenDetails, extras }: { item: CollectionItem; onO
           <p className="text-xs text-zinc-500 truncate flex-1" title={formatDesc}>
             {formatDesc}
           </p>
-          <a
-            href={`https://www.discogs.com/release/${info.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-zinc-500 hover:text-purple-400 p-1 transition-colors"
-            title="View on Discogs"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+          <div className="flex items-center gap-1">
+            <a
+              href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(artist)}%20${encodeURIComponent(info.title)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-zinc-500 hover:text-orange-400 p-1 transition-colors"
+              title="Search tabs on Ultimate Guitar"
+            >
+              <Guitar className="w-4 h-4" />
+            </a>
+            <a
+              href={`https://www.discogs.com/release/${info.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-zinc-500 hover:text-purple-400 p-1 transition-colors"
+              title="View on Discogs"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
         </div>
 
         {extras?.lowestPrice != null && (

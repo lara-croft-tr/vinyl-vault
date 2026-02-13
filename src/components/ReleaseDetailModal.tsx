@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, Search, ScrollText, Disc3 } from 'lucide-react';
+import { X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, Search, ScrollText, Disc3, Guitar } from 'lucide-react';
 
 interface ReleaseDetails {
   id: number;
@@ -256,19 +256,35 @@ export function ReleaseDetailModal({ releaseId, onClose, basicInfo, showRemoveBu
                     <div>
                       <p className="text-sm text-zinc-500 mb-2 flex items-center gap-2">
                         <Music className="w-4 h-4" />Tracklist
-                        <span className="text-xs text-purple-400/60">(tap song for lyrics)</span>
+                        <span className="text-xs text-purple-400/60">(tap song for lyrics/tabs)</span>
                       </p>
                       <div className="bg-zinc-800 rounded-lg p-3 max-h-60 overflow-y-auto">
                         {releaseDetails.tracklist.map((track, i) => (
-                          <button key={i} onClick={() => fetchLyrics(releaseDetails.artists?.[0]?.name || 'Unknown', track.title)} className="w-full flex justify-between py-2 px-2 -mx-2 border-b border-zinc-700 last:border-0 hover:bg-zinc-700/50 rounded transition-colors text-left group">
-                            <span className="text-zinc-300 group-hover:text-white">
+                          <div key={i} className="flex justify-between py-2 px-2 -mx-2 border-b border-zinc-700 last:border-0 hover:bg-zinc-700/50 rounded transition-colors group">
+                            <span className="text-zinc-300 group-hover:text-white flex-1">
                               <span className="text-zinc-500 mr-2">{track.position || i + 1}.</span>{track.title}
                             </span>
                             <div className="flex items-center gap-2">
                               {track.duration && <span className="text-zinc-500 text-sm">{track.duration}</span>}
-                              <ScrollText className="w-4 h-4 text-zinc-600 group-hover:text-purple-400 transition-colors" />
+                              <a
+                                href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(releaseDetails.artists?.[0]?.name || '')}%20${encodeURIComponent(track.title)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-zinc-600 hover:text-orange-400 transition-colors"
+                                title="Search tabs on Ultimate Guitar"
+                              >
+                                <Guitar className="w-4 h-4" />
+                              </a>
+                              <button
+                                onClick={() => fetchLyrics(releaseDetails.artists?.[0]?.name || 'Unknown', track.title)}
+                                className="text-zinc-600 hover:text-purple-400 transition-colors"
+                                title="View lyrics"
+                              >
+                                <ScrollText className="w-4 h-4" />
+                              </button>
                             </div>
-                          </button>
+                          </div>
                         ))}
                       </div>
                     </div>

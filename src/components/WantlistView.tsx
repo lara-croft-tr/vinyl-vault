@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { WantlistItem } from '@/lib/discogs';
-import { Calendar, Disc3, ExternalLink, Trash2, Loader2, Plus, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Disc3, ExternalLink, Trash2, Loader2, Plus, AlertTriangle, ChevronLeft, ChevronRight, Guitar } from 'lucide-react';
 import { getArtistSortName } from '@/lib/sort-utils';
 import { useArtistTypes } from '@/lib/use-artist-types';
 import { useMasterYears } from '@/lib/use-master-years';
@@ -491,6 +491,16 @@ function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemo
             >
               {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </button>
+            <a
+              href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(artist)}%20${encodeURIComponent(info.title)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-zinc-500 hover:text-orange-400 p-1 transition-colors"
+              title="Search tabs on Ultimate Guitar"
+            >
+              <Guitar className="w-4 h-4" />
+            </a>
             <a
               href={`https://www.discogs.com/release/${info.id}`}
               target="_blank"
