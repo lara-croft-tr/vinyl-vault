@@ -267,7 +267,7 @@ export function ReleaseDetailModal({ releaseId, onClose, basicInfo, showRemoveBu
                             <div className="flex items-center gap-2">
                               {track.duration && <span className="text-zinc-500 text-sm">{track.duration}</span>}
                               <a
-                                href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(releaseDetails.artists?.[0]?.name || '')}%20${encodeURIComponent(track.title)}`}
+                                href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent('"' + (releaseDetails.artists?.[0]?.name || '').replace(/\s*\(\d+\)\s*$/, '') + '"')}%20${encodeURIComponent('"' + track.title + '"')}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
