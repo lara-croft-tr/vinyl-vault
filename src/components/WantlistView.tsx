@@ -492,16 +492,6 @@ function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemo
               {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </button>
             <a
-              href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(artist)}%20${encodeURIComponent(info.title)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-zinc-500 hover:text-orange-400 p-1 transition-colors"
-              title="Search tabs on Ultimate Guitar"
-            >
-              <Guitar className="w-4 h-4" />
-            </a>
-            <a
               href={`https://www.discogs.com/release/${info.id}`}
               target="_blank"
               rel="noopener noreferrer"
