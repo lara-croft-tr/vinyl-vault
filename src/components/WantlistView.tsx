@@ -7,6 +7,7 @@ import { Calendar, Disc3, ExternalLink, Trash2, Loader2, Plus, AlertTriangle, Ch
 import { getArtistSortName } from '@/lib/sort-utils';
 import { useArtistTypes } from '@/lib/use-artist-types';
 import { useMasterYears } from '@/lib/use-master-years';
+import { useReleaseExtras, getCountryFlag, getCountryShort, ReleaseExtras } from '@/lib/use-release-extras';
 import { ReleaseDetailModal } from './ReleaseDetailModal';
 
 interface Props {
@@ -67,6 +68,9 @@ export function WantlistView({ items: initialItems }: Props) {
   // Get original release years from master releases
   const masterItems = items.map(i => ({ masterId: i.basic_information.master_id || 0 }));
   const { masterYears, loading: masterYearsLoading } = useMasterYears(masterItems);
+
+  const releaseIds = items.map(i => i.basic_information.id);
+  const { extras: releaseExtras, loading: extrasLoading } = useReleaseExtras(releaseIds);
 
   // Helper to get original year (master year) or fall back to release year
   const getOriginalYear = (item: WantlistItem): number => {
@@ -310,6 +314,12 @@ export function WantlistView({ items: initialItems }: Props) {
             Loading original release years...
           </span>
         )}
+        {extrasLoading && (
+          <span className="inline-flex items-center gap-1 ml-2 text-purple-400">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Loading release details...
+          </span>
+        )}
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -322,6 +332,7 @@ export function WantlistView({ items: initialItems }: Props) {
             onAddToCollection={() => handleAddToCollection(item.basic_information.id)}
             isRemoving={removing === item.basic_information.id}
             isAdding={adding === item.basic_information.id}
+            extras={releaseExtras[item.basic_information.id]}
           />
         ))}
       </div>
@@ -370,13 +381,45 @@ export function WantlistView({ items: initialItems }: Props) {
   );
 }
 
-function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving, isAdding }: {
+function GenreStyleTags({ genres, styles }: { genres?: string[]; styles?: string[] }) {
+  const maxGenres = 2;
+  const maxStyles = 2;
+  const shownGenres = genres?.slice(0, maxGenres) || [];
+  const shownStyles = styles?.slice(0, maxStyles) || [];
+  const extraCount = ((genres?.length || 0) - maxGenres) + ((styles?.length || 0) - maxStyles);
+  const hasExtra = extraCount > 0;
+
+  if (shownGenres.length === 0 && shownStyles.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {shownGenres.map((g) => (
+        <span key={g} className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full leading-tight">
+          {g}
+        </span>
+      ))}
+      {shownStyles.map((s) => (
+        <span key={s} className="text-[10px] bg-zinc-700/60 text-zinc-400 px-1.5 py-0.5 rounded-full leading-tight">
+          {s}
+        </span>
+      ))}
+      {hasExtra && (
+        <span className="text-[10px] text-zinc-500 px-1 py-0.5 leading-tight">
+          +{extraCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving, isAdding, extras }: {
   item: WantlistItem;
   onOpenDetails: () => void;
   onRemove: () => void;
   onAddToCollection: () => void;
   isRemoving: boolean;
   isAdding: boolean;
+  extras?: ReleaseExtras;
 }) {
   const info = item.basic_information;
   const artist = info.artists[0]?.name || 'Unknown Artist';
@@ -418,8 +461,15 @@ function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemo
         <p className="text-zinc-400 text-sm truncate" title={artist}>
           {artist}
         </p>
+        {extras?.country && (
+          <p className="text-zinc-500 text-xs mt-0.5">
+            {getCountryFlag(extras.country)} {getCountryShort(extras.country)}
+          </p>
+        )}
+
+        <GenreStyleTags genres={info.genres} styles={info.styles} />
         
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {info.year && (
             <span className="inline-flex items-center gap-1 text-xs bg-zinc-800 px-2 py-1 rounded">
               <Calendar className="w-3 h-3" />
@@ -461,6 +511,12 @@ function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemo
             </button>
           </div>
         </div>
+
+        {extras?.lowestPrice != null && (
+          <p className="text-green-500/80 text-xs mt-1.5 font-medium">
+            ${extras.lowestPrice.toFixed(2)} est.
+          </p>
+        )}
       </div>
     </div>
   );
