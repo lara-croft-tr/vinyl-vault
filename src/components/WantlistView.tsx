@@ -158,13 +158,33 @@ export function WantlistView({ items: initialItems }: Props) {
   const handleAddToCollection = async (releaseId: number) => {
     setAdding(releaseId);
     try {
-      await fetch('/api/collection/add', {
+      const addRes = await fetch('/api/collection/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
       });
+
+      if (!addRes.ok) {
+        throw new Error('Add to collection failed');
+      }
+
+      // Auto-remove from wantlist after successful add to collection
+      const removeRes = await fetch('/api/wantlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ releaseId }),
+      });
+
+      if (!removeRes.ok) {
+        throw new Error('Added to collection, but failed to remove from wantlist');
+      }
+
+      setItems(prev => prev.filter((i) => i.basic_information.id !== releaseId));
+      if (selectedItem?.basic_information.id === releaseId) {
+        setSelectedItem(null);
+      }
     } catch (error) {
-      console.error('Failed to add to collection:', error);
+      console.error('Failed to add/remove wantlist item:', error);
     }
     setAdding(null);
   };
