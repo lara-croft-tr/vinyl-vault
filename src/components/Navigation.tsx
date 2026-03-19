@@ -7,7 +7,7 @@ import { Disc3, Library, Heart, Search, ShoppingBag, BarChart3, Menu, X } from '
 
 const navItems = [
   { href: '/', label: 'Collection', icon: Library },
-  { href: '/wantlist', label: 'Wantlist', icon: Heart },
+  { href: '/wishlist', label: 'Wishlist', icon: Heart },
   { href: '/search', label: 'Search', icon: Search },
   { href: '/marketplace', label: 'Marketplace', icon: ShoppingBag },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
