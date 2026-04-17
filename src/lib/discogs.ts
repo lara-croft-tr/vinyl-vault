@@ -50,7 +50,7 @@ export interface CollectionItem {
   notes: { field_id: number; value: string }[];
 }
 
-export interface WantlistItem {
+export interface WantsItem {
   id: number;
   rating: number;
   date_added: string;
@@ -89,7 +89,7 @@ export async function getCollection(page = 1, perPage = 50): Promise<{
   };
 }
 
-export async function getWantlist(): Promise<WantlistItem[]> {
+export async function getWants(): Promise<WantsItem[]> {
   const res = await fetch(
     `${DISCOGS_BASE}/users/${USERNAME}/wants?per_page=100`,
     { headers, next: { revalidate: 60 } }
@@ -98,14 +98,14 @@ export async function getWantlist(): Promise<WantlistItem[]> {
   return data.wants || [];
 }
 
-export async function addToWantlist(releaseId: number): Promise<void> {
+export async function addToWants(releaseId: number): Promise<void> {
   await fetch(`${DISCOGS_BASE}/users/${USERNAME}/wants/${releaseId}`, {
     method: 'PUT',
     headers,
   });
 }
 
-export async function removeFromWantlist(releaseId: number): Promise<void> {
+export async function removeFromWants(releaseId: number): Promise<void> {
   await fetch(`${DISCOGS_BASE}/users/${USERNAME}/wants/${releaseId}`, {
     method: 'DELETE',
     headers,

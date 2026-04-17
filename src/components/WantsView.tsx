@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { WantlistItem } from '@/lib/discogs';
+import { WantsItem } from '@/lib/discogs';
 import { Calendar, Disc3, ExternalLink, Trash2, Loader2, Plus, AlertTriangle, ChevronLeft, ChevronRight, Guitar } from 'lucide-react';
 import { getArtistSortName } from '@/lib/sort-utils';
 import { useArtistTypes } from '@/lib/use-artist-types';
@@ -11,7 +11,7 @@ import { useReleaseExtras, getCountryFlag, getCountryShort, ReleaseExtras } from
 import { ReleaseDetailModal } from './ReleaseDetailModal';
 
 interface Props {
-  items: WantlistItem[];
+  items: WantsItem[];
 }
 
 const GENRES = [
@@ -42,7 +42,7 @@ const DECADES = [
   '1950s',
 ];
 
-export function WantlistView({ items: initialItems }: Props) {
+export function WantsView({ items: initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState('');
   const [genre, setGenre] = useState('All Genres');
@@ -51,9 +51,9 @@ export function WantlistView({ items: initialItems }: Props) {
   const [sortBy, setSortBy] = useState<'added' | 'artist' | 'artistDesc' | 'title' | 'year' | 'originalYear'>('artist');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
-  const [selectedItem, setSelectedItem] = useState<WantlistItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<WantsItem | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState<WantlistItem | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<WantsItem | null>(null);
   const [adding, setAdding] = useState<number | null>(null);
 
   // Get unique artist IDs for type detection
@@ -73,7 +73,7 @@ export function WantlistView({ items: initialItems }: Props) {
   const { extras: releaseExtras, loading: extrasLoading } = useReleaseExtras(releaseIds);
 
   // Helper to get original year (master year) or fall back to release year
-  const getOriginalYear = (item: WantlistItem): number => {
+  const getOriginalYear = (item: WantsItem): number => {
     const masterId = item.basic_information.master_id;
     if (masterId && masterYears[masterId]) return masterYears[masterId];
     return item.basic_information.year || 0;
@@ -137,11 +137,11 @@ export function WantlistView({ items: initialItems }: Props) {
     setCurrentPage(1);
   };
 
-  const handleRemove = async (item: WantlistItem) => {
+  const handleRemove = async (item: WantsItem) => {
     const releaseId = item.basic_information.id;
     setRemoving(releaseId);
     try {
-      await fetch('/api/wantlist', {
+      await fetch('/api/wants', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
@@ -168,15 +168,15 @@ export function WantlistView({ items: initialItems }: Props) {
         throw new Error('Add to collection failed');
       }
 
-      // Auto-remove from wantlist after successful add to collection
-      const removeRes = await fetch('/api/wantlist', {
+      // Auto-remove from wants after successful add to collection
+      const removeRes = await fetch('/api/wants', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
       });
 
       if (!removeRes.ok) {
-        throw new Error('Added to collection, but failed to remove from wantlist');
+        throw new Error('Added to collection, but failed to remove from wants');
       }
 
       setItems(prev => prev.filter((i) => i.basic_information.id !== releaseId));
@@ -184,7 +184,7 @@ export function WantlistView({ items: initialItems }: Props) {
         setSelectedItem(null);
       }
     } catch (error) {
-      console.error('Failed to add/remove wantlist item:', error);
+      console.error('Failed to add/remove wants item:', error);
     }
     setAdding(null);
   };
@@ -200,7 +200,7 @@ export function WantlistView({ items: initialItems }: Props) {
                 <AlertTriangle className="w-6 h-6 text-red-500" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white mb-1">Remove from Wantlist?</h3>
+                <h3 className="text-lg font-semibold text-white mb-1">Remove from Wants?</h3>
                 <p className="text-zinc-400 text-sm">
                   Are you sure you want to remove this record?
                 </p>
@@ -275,7 +275,7 @@ export function WantlistView({ items: initialItems }: Props) {
       <div className="flex flex-wrap gap-4 mb-6">
         <input
           type="text"
-          placeholder="Search your wantlist..."
+          placeholder="Search your wants..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           className="flex-1 min-w-[200px] bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
@@ -344,7 +344,7 @@ export function WantlistView({ items: initialItems }: Props) {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {paginatedItems.map((item) => (
-          <WantlistCard
+          <WantsCard
             key={item.id}
             item={item}
             onOpenDetails={() => setSelectedItem(item)}
@@ -432,8 +432,8 @@ function GenreStyleTags({ genres, styles }: { genres?: string[]; styles?: string
   );
 }
 
-function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving, isAdding, extras }: {
-  item: WantlistItem;
+function WantsCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving, isAdding, extras }: {
+  item: WantsItem;
   onOpenDetails: () => void;
   onRemove: () => void;
   onAddToCollection: () => void;
@@ -525,7 +525,7 @@ function WantlistCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemo
               onClick={onRemove}
               disabled={isRemoving}
               className="text-zinc-500 hover:text-red-400 p-1 transition-colors"
-              title="Remove from Wantlist"
+              title="Remove from Wants"
             >
               {isRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
             </button>
