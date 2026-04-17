@@ -98,10 +98,10 @@ export default function SearchPage() {
     setLoading(false);
   };
 
-  const handleAddToWishlist = async (releaseId: number) => {
+  const handleAddToWantlist = async (releaseId: number) => {
     setAddingWant(releaseId);
     try {
-      await fetch('/api/wishlist', {
+      await fetch('/api/wantlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
@@ -261,7 +261,7 @@ export default function SearchPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Search Discogs</h1>
         <p className="text-zinc-500">
-          Find vinyl records to add to your collection or wishlist
+          Find vinyl records to add to your collection or wantlist
         </p>
       </div>
 
@@ -382,7 +382,7 @@ export default function SearchPage() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => handleAddToWishlist(result.id)}
+                        onClick={() => handleAddToWantlist(result.id)}
                         disabled={addingWant === result.id}
                         className="flex-1 inline-flex items-center justify-center bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-1.5 rounded text-xs transition-colors"
                       >
