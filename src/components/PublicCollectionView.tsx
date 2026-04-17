@@ -116,16 +116,18 @@ export function PublicCollectionView({ items, username }: Props) {
   const nextImage = () => setCurrentImageIndex((i) => (i + 1) % images.length);
   const prevImage = () => setCurrentImageIndex((i) => (i - 1 + images.length) % images.length);
 
-  const fetchLyrics = async (artist: string, title: string) => {
+  const fetchLyrics = async (artist: string, title: string, album?: string) => {
     setLyricsModal({ artist, title });
     setLyrics(null);
     setLyricsFallback(null);
     setLyricsLoading(true);
-    
+
     try {
-      const res = await fetch(`/api/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+      const params = new URLSearchParams({ artist, title });
+      if (album) params.set('album', album);
+      const res = await fetch(`/api/lyrics?${params.toString()}`);
       const data = await res.json();
-      
+
       if (data.lyrics) {
         setLyrics(data.lyrics);
       } else {
@@ -385,7 +387,8 @@ export function PublicCollectionView({ items, username }: Props) {
                               key={i}
                               onClick={() => fetchLyrics(
                                 releaseDetails.artists?.[0]?.name || 'Unknown',
-                                track.title
+                                track.title,
+                                releaseDetails.title
                               )}
                               className="w-full flex justify-between py-2 px-2 -mx-2 border-b border-zinc-700 last:border-0 hover:bg-zinc-700/50 rounded transition-colors text-left group"
                             >
