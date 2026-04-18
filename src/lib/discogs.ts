@@ -126,17 +126,25 @@ export async function getWants(): Promise<WantsItem[]> {
 }
 
 export async function addToWants(releaseId: number): Promise<void> {
-  await fetch(`${DISCOGS_BASE}/users/${USERNAME}/wants/${releaseId}`, {
+  const res = await fetch(`${DISCOGS_BASE}/users/${USERNAME}/wants/${releaseId}`, {
     method: 'PUT',
     headers,
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Discogs add-to-wants failed (${res.status}): ${body.slice(0, 200)}`);
+  }
 }
 
 export async function removeFromWants(releaseId: number): Promise<void> {
-  await fetch(`${DISCOGS_BASE}/users/${USERNAME}/wants/${releaseId}`, {
+  const res = await fetch(`${DISCOGS_BASE}/users/${USERNAME}/wants/${releaseId}`, {
     method: 'DELETE',
     headers,
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Discogs remove-from-wants failed (${res.status}): ${body.slice(0, 200)}`);
+  }
 }
 
 export async function addToCollection(releaseId: number, folderId = 1): Promise<{ instance_id: number }> {
@@ -147,6 +155,10 @@ export async function addToCollection(releaseId: number, folderId = 1): Promise<
       headers,
     }
   );
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Discogs add-to-collection failed (${res.status}): ${body.slice(0, 200)}`);
+  }
   return res.json();
 }
 
@@ -210,6 +222,26 @@ export async function getRelease(id: number): Promise<any> {
   return res.json();
 }
 
+export async function getMasterRelease(masterId: number): Promise<{ main_release: number; title: string; year: number; artists: Artist[] }> {
+  const res = await fetch(`${DISCOGS_BASE}/masters/${masterId}`, {
+    headers,
+    next: { revalidate: 60 * 60 * 24 * 30 },  // master metadata is very stable
+  });
+  if (!res.ok) {
+    throw new Error(`Discogs master ${masterId} lookup failed (${res.status})`);
+  }
+  const data = await res.json();
+  if (!data.main_release) {
+    throw new Error(`Discogs master ${masterId} has no main_release`);
+  }
+  return {
+    main_release: data.main_release,
+    title: data.title,
+    year: data.year,
+    artists: data.artists || [],
+  };
+}
+
 export async function getMarketplaceStats(releaseId: number): Promise<PriceStats> {
   const res = await fetch(
     `${DISCOGS_BASE}/marketplace/stats/${releaseId}?curr_abbr=USD`,
@@ -246,11 +278,6 @@ export async function searchMarketplace(releaseId: number, country = 'US'): Prom
   );
   const data = await res.json();
   return data.listings || [];
-}
-
-export async function getMasterRelease(masterId: number): Promise<any> {
-  const res = await fetch(`${DISCOGS_BASE}/masters/${masterId}`, { headers });
-  return res.json();
 }
 
 export function formatCondition(condition: string): string {

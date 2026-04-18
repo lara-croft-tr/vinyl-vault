@@ -27,11 +27,13 @@ interface SearchResult {
 
 /**
  * A search result can be a master (represents one album, de-duplicating
- * across pressings) or a release (one specific pressing). For actions
- * like "add to collection" we always need a release id.
+ * across pressings) or a release. Master search results do NOT include
+ * main_release in the summary, so add/want actions must send masterId
+ * and let the server resolve to main_release via /masters/{id}.
  */
-function releaseIdFor(result: SearchResult): number {
-  return result.type === 'master' && result.main_release ? result.main_release : result.id;
+function addActionBody(result: SearchResult): { releaseId?: number; masterId?: number } {
+  if (result.type === 'master') return { masterId: result.id };
+  return { releaseId: result.id };
 }
 
 interface Duplicate {
@@ -96,13 +98,15 @@ export default function SearchPage() {
   const [addedToCollection, setAddedToCollection] = useState<Set<number>>(new Set());
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarning | null>(null);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [selectedReleaseId, setSelectedReleaseId] = useState<number | null>(null);
 
   // Hide-owned filter: lazy-fetch collection keys once on mount
   const [collectionKeys, setCollectionKeys] = useState<Set<string> | null>(null);
   const [hideOwned, setHideOwned] = useState(false);
 
-  // Collapse multiple pressings to the canonical album by searching master records
-  const [masterOnly, setMasterOnly] = useState(true);
+  // Collapse multiple pressings to the canonical album by searching master records.
+  // Default OFF; user toggles on when duplicate pressings flood the results.
+  const [masterOnly, setMasterOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,20 +174,47 @@ export default function SearchPage() {
     }
   };
 
+  /** Open the release-detail modal for a search result. Resolves master -> main_release. */
+  const openDetails = async (result: SearchResult) => {
+    setSelectedResult(result);
+    if (result.type === 'master') {
+      setSelectedReleaseId(null);
+      try {
+        const res = await fetch(`/api/master-main-release?id=${result.id}`);
+        const data = await res.json();
+        if (data.main_release) {
+          setSelectedReleaseId(data.main_release);
+        } else {
+          throw new Error(data.error || 'No main release');
+        }
+      } catch (err) {
+        console.error('Master resolve failed:', err);
+        setSelectedResult(null);
+        alert('Could not load release details for this master.');
+      }
+    } else {
+      setSelectedReleaseId(result.id);
+    }
+  };
+
   const handleAddToWants = async (resultId: number) => {
     const result = results.find((r) => r.id === resultId);
     if (!result) return;
-    const releaseId = releaseIdFor(result);
     setAddingWant(resultId);
     try {
-      await fetch('/api/wants', {
+      const res = await fetch('/api/wants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ releaseId }),
+        body: JSON.stringify(addActionBody(result)),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
       setAddedToWant(new Set([...addedToWant, resultId]));
     } catch (error) {
-      console.error('Failed to add:', error);
+      console.error('Failed to add to wants:', error);
+      alert(`Could not add to wants: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
     setAddingWant(null);
   };
@@ -201,11 +232,9 @@ export default function SearchPage() {
     const result = results.find((r) => r.id === resultId);
     if (!result) return;
 
-    const releaseId = releaseIdFor(result);
     const { artist, title } = extractArtistAndTitle(result.title);
 
-    // Check for duplicates first (unless skipping). Duplicate check matches
-    // by artist+title, so it works identically for master or release.
+    // Duplicate check (by artist + title, works for master or release).
     if (!skipCheck && artist) {
       setCheckingDuplicate(resultId);
       try {
@@ -219,7 +248,7 @@ export default function SearchPage() {
         if (data.hasDuplicate) {
           setCheckingDuplicate(null);
           setDuplicateWarning({
-            releaseId: resultId,   // track the card, not the underlying release
+            releaseId: resultId,
             title,
             artist,
             duplicates: data.duplicates,
@@ -232,17 +261,22 @@ export default function SearchPage() {
       setCheckingDuplicate(null);
     }
 
-    // Add to collection (using the actual release id)
+    // Actual add: server resolves masterId -> main_release as needed.
     setAddingCollection(resultId);
     try {
-      await fetch('/api/collection/add', {
+      const res = await fetch('/api/collection/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ releaseId }),
+        body: JSON.stringify(addActionBody(result)),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
       setAddedToCollection(new Set([...addedToCollection, resultId]));
     } catch (error) {
-      console.error('Failed to add:', error);
+      console.error('Failed to add to collection:', error);
+      alert(`Could not add to collection: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
     setAddingCollection(null);
     setDuplicateWarning(null);
@@ -264,10 +298,10 @@ export default function SearchPage() {
   return (
     <div>
       {/* Release Detail Modal */}
-      {selectedResult && (
+      {selectedResult && selectedReleaseId && (
         <ReleaseDetailModal
-          releaseId={releaseIdFor(selectedResult)}
-          onClose={() => setSelectedResult(null)}
+          releaseId={selectedReleaseId}
+          onClose={() => { setSelectedResult(null); setSelectedReleaseId(null); }}
           basicInfo={extractBasicInfo(selectedResult)}
         />
       )}
@@ -449,7 +483,7 @@ export default function SearchPage() {
                 className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden hover:border-zinc-700 transition-colors"
               >
                 {/* Album Art */}
-                <div className="aspect-square relative bg-zinc-800 cursor-pointer" onClick={() => setSelectedResult(result)}>
+                <div className="aspect-square relative bg-zinc-800 cursor-pointer" onClick={() => openDetails(result)}>
                   {result.thumb ? (
                     <Image
                       src={result.cover_image || result.thumb}
@@ -467,7 +501,7 @@ export default function SearchPage() {
 
                 {/* Info */}
                 <div className="p-3">
-                  <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-2 cursor-pointer hover:text-purple-400 transition-colors" onClick={() => setSelectedResult(result)}>{result.title}</h3>
+                  <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-2 cursor-pointer hover:text-purple-400 transition-colors" onClick={() => openDetails(result)}>{result.title}</h3>
                   <div className="flex flex-wrap gap-1 text-xs mb-3">
                     {result.year && (
                       <span className="bg-zinc-800 px-2 py-0.5 rounded">{result.year}</span>
