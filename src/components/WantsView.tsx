@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { WantsItem } from '@/lib/discogs';
-import { Calendar, Disc3, ExternalLink, Trash2, Loader2, Plus, AlertTriangle, ChevronLeft, ChevronRight, Guitar } from 'lucide-react';
+import { Calendar, Disc3, ExternalLink, Trash2, Loader2, Plus, AlertTriangle, ChevronLeft, ChevronRight, Guitar, LayoutGrid, List } from 'lucide-react';
 import { getArtistSortName } from '@/lib/sort-utils';
 import { useArtistTypes } from '@/lib/use-artist-types';
 import { useMasterYears } from '@/lib/use-master-years';
 import { useReleaseExtras, getCountryFlag, getCountryShort, ReleaseExtras } from '@/lib/use-release-extras';
+import { useViewMode } from '@/lib/use-view-mode';
 import { ReleaseDetailModal } from './ReleaseDetailModal';
 
 interface Props {
@@ -55,6 +56,7 @@ export function WantsView({ items: initialItems }: Props) {
   const [removing, setRemoving] = useState<number | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<WantsItem | null>(null);
   const [adding, setAdding] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useViewMode('wants', 'grid');
 
   // Get unique artist IDs for type detection
   const uniqueArtists = Array.from(
@@ -317,6 +319,30 @@ export function WantsView({ items: initialItems }: Props) {
           <option value="year">Year (Newest)</option>
           <option value="originalYear">Original Release Year</option>
         </select>
+        <div className="inline-flex bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden" role="group" aria-label="View mode">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            aria-pressed={viewMode === 'grid'}
+            title="Grid view"
+            className={`flex items-center gap-1 px-3 py-3 text-sm transition-colors ${
+              viewMode === 'grid' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            aria-pressed={viewMode === 'list'}
+            title="List view"
+            className={`flex items-center gap-1 px-3 py-3 text-sm transition-colors ${
+              viewMode === 'list' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <p className="text-zinc-500 text-sm mb-4">
@@ -342,20 +368,37 @@ export function WantsView({ items: initialItems }: Props) {
         )}
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {paginatedItems.map((item) => (
-          <WantsCard
-            key={item.id}
-            item={item}
-            onOpenDetails={() => setSelectedItem(item)}
-            onRemove={() => setConfirmRemove(item)}
-            onAddToCollection={() => handleAddToCollection(item.basic_information.id)}
-            isRemoving={removing === item.basic_information.id}
-            isAdding={adding === item.basic_information.id}
-            extras={releaseExtras[item.basic_information.id]}
-          />
-        ))}
-      </div>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {paginatedItems.map((item) => (
+            <WantsCard
+              key={item.id}
+              item={item}
+              onOpenDetails={() => setSelectedItem(item)}
+              onRemove={() => setConfirmRemove(item)}
+              onAddToCollection={() => handleAddToCollection(item.basic_information.id)}
+              isRemoving={removing === item.basic_information.id}
+              isAdding={adding === item.basic_information.id}
+              extras={releaseExtras[item.basic_information.id]}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
+          {paginatedItems.map((item) => (
+            <WantsRow
+              key={item.id}
+              item={item}
+              onOpenDetails={() => setSelectedItem(item)}
+              onRemove={() => setConfirmRemove(item)}
+              onAddToCollection={() => handleAddToCollection(item.basic_information.id)}
+              isRemoving={removing === item.basic_information.id}
+              isAdding={adding === item.basic_information.id}
+              extras={releaseExtras[item.basic_information.id]}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Pagination controls */}
       {totalPages > 1 && (
@@ -537,6 +580,94 @@ function WantsCard({ item, onOpenDetails, onRemove, onAddToCollection, isRemovin
             ${extras.lowestPrice.toFixed(2)} est.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function WantsRow({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving, isAdding, extras }: {
+  item: WantsItem;
+  onOpenDetails: () => void;
+  onRemove: () => void;
+  onAddToCollection: () => void;
+  isRemoving: boolean;
+  isAdding: boolean;
+  extras?: ReleaseExtras;
+}) {
+  const info = item.basic_information;
+  const artist = info.artists[0]?.name || 'Unknown Artist';
+  const format = info.formats[0];
+  const formatShort = format ? (format.descriptions?.[0] || format.name) : 'Vinyl';
+
+  return (
+    <div
+      onClick={onOpenDetails}
+      className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+    >
+      <div className="w-12 h-12 relative rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
+        {info.cover_image ? (
+          <Image src={info.thumb || info.cover_image} alt="" fill className="object-cover" sizes="48px" />
+        ) : (
+          <Disc3 className="w-5 h-5 m-auto text-zinc-600" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm text-white truncate" title={`${artist} - ${info.title}`}>
+          <span className="text-zinc-400">{artist}</span>
+          <span className="text-zinc-600 mx-1">—</span>
+          <span>{info.title}</span>
+        </p>
+        <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5 truncate">
+          {info.year ? <span>{info.year}</span> : null}
+          {info.year && <span className="text-zinc-700">·</span>}
+          <span>{formatShort}</span>
+          {extras?.country && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span>{getCountryFlag(extras.country)} {getCountryShort(extras.country)}</span>
+            </>
+          )}
+          {info.genres?.[0] && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span className="text-purple-400/80">{info.genres[0]}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        {extras?.lowestPrice != null && (
+          <span className="text-green-500/80 text-xs font-medium tabular-nums">
+            ${extras.lowestPrice.toFixed(0)}
+          </span>
+        )}
+        <button
+          onClick={onAddToCollection}
+          disabled={isAdding}
+          className="text-zinc-500 hover:text-green-400 p-1 transition-colors"
+          title="Add to Collection"
+        >
+          {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+        </button>
+        <a
+          href={`https://www.discogs.com/release/${info.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-500 hover:text-purple-400 p-1 transition-colors"
+          title="View on Discogs"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </a>
+        <button
+          onClick={onRemove}
+          disabled={isRemoving}
+          className="text-zinc-500 hover:text-red-400 p-1 transition-colors"
+          title="Remove from Wants"
+        >
+          {isRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+        </button>
       </div>
     </div>
   );

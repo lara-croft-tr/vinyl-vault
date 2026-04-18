@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { CollectionItem, formatCondition } from '@/lib/discogs';
-import { Calendar, Disc3, ExternalLink, Trash2, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Guitar } from 'lucide-react';
+import { Calendar, Disc3, ExternalLink, Trash2, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Guitar, LayoutGrid, List } from 'lucide-react';
 import { getArtistSortName } from '@/lib/sort-utils';
 import { useArtistTypes } from '@/lib/use-artist-types';
 import { useMasterYears } from '@/lib/use-master-years';
 import { useReleaseExtras, getCountryFlag, getCountryShort, ReleaseExtras } from '@/lib/use-release-extras';
+import { useViewMode } from '@/lib/use-view-mode';
 import { ReleaseDetailModal } from './ReleaseDetailModal';
 
 interface Props {
@@ -48,6 +49,7 @@ export function CollectionGrid({ items: initialItems }: Props) {
   const [genre, setGenre] = useState('All Genres');
   const [decade, setDecade] = useState('All Decades');
   const [yearFilter, setYearFilter] = useState('');
+  const [viewMode, setViewMode] = useViewMode('collection', 'grid');
   const [sortBy, setSortBy] = useState<'added' | 'artist' | 'artistDesc' | 'title' | 'year' | 'originalYear'>('artist');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -298,6 +300,30 @@ export function CollectionGrid({ items: initialItems }: Props) {
           <option value="year">Year (Newest)</option>
           <option value="originalYear">Original Release Year</option>
         </select>
+        <div className="inline-flex bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden" role="group" aria-label="View mode">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            aria-pressed={viewMode === 'grid'}
+            title="Grid view"
+            className={`flex items-center gap-1 px-3 py-3 text-sm transition-colors ${
+              viewMode === 'grid' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            aria-pressed={viewMode === 'list'}
+            title="List view"
+            className={`flex items-center gap-1 px-3 py-3 text-sm transition-colors ${
+              viewMode === 'list' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <p className="text-zinc-500 text-sm mb-4">
@@ -323,16 +349,29 @@ export function CollectionGrid({ items: initialItems }: Props) {
         )}
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {paginatedItems.map((item) => (
-          <RecordCard 
-            key={item.instance_id} 
-            item={item} 
-            onOpenDetails={() => handleOpenDetails(item)}
-            extras={releaseExtras[item.basic_information.id]}
-          />
-        ))}
-      </div>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {paginatedItems.map((item) => (
+            <RecordCard
+              key={item.instance_id}
+              item={item}
+              onOpenDetails={() => handleOpenDetails(item)}
+              extras={releaseExtras[item.basic_information.id]}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
+          {paginatedItems.map((item) => (
+            <RecordRow
+              key={item.instance_id}
+              item={item}
+              onOpenDetails={() => handleOpenDetails(item)}
+              extras={releaseExtras[item.basic_information.id]}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Pagination controls */}
       {totalPages > 1 && (
@@ -497,6 +536,82 @@ function RecordCard({ item, onOpenDetails, extras }: { item: CollectionItem; onO
             ${extras.lowestPrice.toFixed(2)} est.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function RecordRow({ item, onOpenDetails, extras }: { item: CollectionItem; onOpenDetails: () => void; extras?: ReleaseExtras }) {
+  const info = item.basic_information;
+  const artist = info.artists[0]?.name || 'Unknown Artist';
+  const format = info.formats[0];
+  const formatShort = format
+    ? (format.descriptions?.[0] || format.name)
+    : 'Vinyl';
+  const mediaCondition = item.notes?.find((n) => n.field_id === 1)?.value;
+
+  return (
+    <div
+      onClick={onOpenDetails}
+      className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+    >
+      <div className="w-12 h-12 relative rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
+        {info.cover_image ? (
+          <Image src={info.thumb || info.cover_image} alt="" fill className="object-cover" sizes="48px" />
+        ) : (
+          <Disc3 className="w-5 h-5 m-auto text-zinc-600" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <p className="font-medium text-sm text-white truncate" title={`${artist} - ${info.title}`}>
+            <span className="text-zinc-400">{artist}</span>
+            <span className="text-zinc-600 mx-1">—</span>
+            <span>{info.title}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5 truncate">
+          {info.year ? <span>{info.year}</span> : null}
+          {info.year && <span className="text-zinc-700">·</span>}
+          <span>{formatShort}</span>
+          {extras?.country && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span>{getCountryFlag(extras.country)} {getCountryShort(extras.country)}</span>
+            </>
+          )}
+          {info.genres?.[0] && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span className="text-purple-400/80">{info.genres[0]}</span>
+            </>
+          )}
+          {mediaCondition && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span className="text-purple-400/80">{formatCondition(mediaCondition)}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {extras?.lowestPrice != null && (
+          <span className="text-green-500/80 text-xs font-medium tabular-nums">
+            ${extras.lowestPrice.toFixed(0)}
+          </span>
+        )}
+        <a
+          href={`https://www.discogs.com/release/${info.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-zinc-500 hover:text-purple-400 transition-colors"
+          title="View on Discogs"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </a>
       </div>
     </div>
   );
