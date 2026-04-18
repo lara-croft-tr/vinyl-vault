@@ -234,7 +234,7 @@ export function StatsView({ items }: Props) {
             <DollarSign className="w-5 h-5 text-green-500" />
             <span className="text-lg font-semibold">Estimated Collection Value</span>
           </div>
-          {!valueData.loaded && !loadingValues && (
+          {!loadingValues && (
             <div className="flex items-center gap-2">
               <select
                 value={sampleSize}
@@ -250,7 +250,7 @@ export function StatsView({ items }: Props) {
                 onClick={loadValues}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
               >
-                Calculate Value
+                {valueData.loaded ? 'Resample' : 'Calculate Value'}
               </button>
             </div>
           )}
