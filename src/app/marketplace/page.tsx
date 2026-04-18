@@ -1,9 +1,23 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { ShoppingBag, Search, Disc3, ExternalLink, DollarSign, MapPin, Star, Loader2 } from 'lucide-react';
+import { ShoppingBag, Search, Disc3, ExternalLink, MapPin, Star, Loader2, Library } from 'lucide-react';
+
+// Must match server-side normalization in /api/collection/keys and
+// /api/collection/check-duplicate
+const normalize = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+/** Split a Discogs search-result title of form "Artist - Album" into parts. */
+function parseResultTitle(fullTitle: string): { artist: string; album: string } {
+  const idx = fullTitle.indexOf(' - ');
+  if (idx === -1) return { artist: '', album: fullTitle };
+  return {
+    artist: fullTitle.substring(0, idx).trim(),
+    album: fullTitle.substring(idx + 3).trim(),
+  };
+}
 
 interface Listing {
   id: number;
@@ -35,11 +49,46 @@ function MarketplaceContent() {
   const [selectedRelease, setSelectedRelease] = useState<any>(null);
   const [country, setCountry] = useState('US');
 
+  // Collection keys for "hide what I already own" filter
+  const [collectionKeys, setCollectionKeys] = useState<Set<string> | null>(null);
+  const [hideOwned, setHideOwned] = useState(false);
+
   useEffect(() => {
     if (initialReleaseId) {
       fetchListings(initialReleaseId);
     }
   }, [initialReleaseId]);
+
+  // Lazy-fetch collection keys once on mount; filter is a no-op until ready
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/collection/keys')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.keys)) {
+          setCollectionKeys(new Set<string>(data.keys));
+        }
+      })
+      .catch(() => {
+        /* silent - filter just won't be available */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredResults = useMemo(() => {
+    if (!hideOwned || !collectionKeys || collectionKeys.size === 0) {
+      return searchResults;
+    }
+    return searchResults.filter((result) => {
+      const { artist, album } = parseResultTitle(result.title || '');
+      if (!artist || !album) return true;
+      return !collectionKeys.has(`${normalize(artist)}|${normalize(album)}`);
+    });
+  }, [searchResults, hideOwned, collectionKeys]);
+
+  const hiddenCount = searchResults.length - filteredResults.length;
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,9 +203,29 @@ function MarketplaceContent() {
       {/* Search results */}
       {searchResults.length > 0 && (
         <div className="mb-6 bg-zinc-900 rounded-lg border border-zinc-800 p-4">
-          <h3 className="text-sm text-zinc-400 mb-3">Select a release:</h3>
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <h3 className="text-sm text-zinc-400">
+              Select a release{hiddenCount > 0 ? ` (${hiddenCount} hidden - already in collection)` : ''}:
+            </h3>
+            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hideOwned}
+                onChange={(e) => setHideOwned(e.target.checked)}
+                disabled={!collectionKeys}
+                className="accent-purple-500 w-4 h-4"
+              />
+              <Library className="w-4 h-4 text-zinc-500" />
+              Hide records already in my collection
+              {!collectionKeys && <span className="text-zinc-600 text-xs">(loading…)</span>}
+            </label>
+          </div>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {searchResults.map((result) => (
+            {filteredResults.length === 0 ? (
+              <p className="text-zinc-500 text-sm py-4 text-center">
+                All {searchResults.length} results are already in your collection.
+              </p>
+            ) : filteredResults.map((result) => (
               <button
                 key={result.id}
                 onClick={() => selectRelease(result)}
