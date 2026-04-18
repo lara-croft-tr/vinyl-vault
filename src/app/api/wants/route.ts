@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { getWants, addToWants, removeFromWants } from '@/lib/discogs';
 
 export async function GET() {
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
   try {
     const { releaseId } = await request.json();
     await addToWants(releaseId);
+    revalidateTag('wants', 'max');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Add to wants error:', error);
@@ -26,6 +28,7 @@ export async function DELETE(request: Request) {
   try {
     const { releaseId } = await request.json();
     await removeFromWants(releaseId);
+    revalidateTag('wants', 'max');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Remove from wants error:', error);

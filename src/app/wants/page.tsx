@@ -2,7 +2,7 @@ import { getWants } from '@/lib/discogs';
 import { WantsView } from '@/components/WantsView';
 import { Heart } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export default async function WantsPage() {
   const wants = await getWants();

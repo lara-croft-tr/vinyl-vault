@@ -80,7 +80,7 @@ export async function getCollection(page = 1, perPage = 50): Promise<{
 }> {
   const res = await fetch(
     `${DISCOGS_BASE}/users/${USERNAME}/collection/folders/0/releases?page=${page}&per_page=${perPage}&sort=added&sort_order=desc`,
-    { headers, next: { revalidate: 60 } }
+    { headers, next: { revalidate: 300, tags: ['collection'] } }
   );
   const data = await res.json();
   return {
@@ -89,10 +89,37 @@ export async function getCollection(page = 1, perPage = 50): Promise<{
   };
 }
 
+/**
+ * Fetch entire collection in one call. First page reveals pagination.pages,
+ * remaining pages are fetched in parallel. Cached 5 min via tag 'collection'.
+ */
+export async function getCollectionAll(perPage = 100, maxPages = 20): Promise<{
+  items: CollectionItem[];
+  totalItems: number;
+}> {
+  const first = await getCollection(1, perPage);
+  const totalItems = first.pagination.items;
+  const pages = Math.min(first.pagination.pages, maxPages);
+
+  if (pages <= 1) {
+    return { items: first.items, totalItems };
+  }
+
+  const rest = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, i) => getCollection(i + 2, perPage)),
+  );
+
+  const items = [
+    ...first.items,
+    ...rest.flatMap((p) => p.items),
+  ];
+  return { items, totalItems };
+}
+
 export async function getWants(): Promise<WantsItem[]> {
   const res = await fetch(
     `${DISCOGS_BASE}/users/${USERNAME}/wants?per_page=100`,
-    { headers, next: { revalidate: 60 } }
+    { headers, next: { revalidate: 300, tags: ['wants'] } }
   );
   const data = await res.json();
   return data.wants || [];

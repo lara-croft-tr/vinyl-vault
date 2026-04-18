@@ -1,23 +1,13 @@
-import { getCollection } from '@/lib/discogs';
+import { getCollectionAll } from '@/lib/discogs';
 import { CollectionGrid } from '@/components/CollectionGrid';
 import { Disc3 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+// Page-level ISR: cached for 5 minutes, re-rendered on demand after expiry.
+// Mutations (add/remove) call revalidateTag('collection') to flush immediately.
+export const revalidate = 300;
 
 export default async function CollectionPage() {
-  // Fetch all pages for client-side filtering/pagination
-  const allItems = [];
-  let page = 1;
-  let hasMore = true;
-  let totalItems = 0;
-  
-  while (hasMore && page <= 10) {
-    const { items, pagination } = await getCollection(page, 100);
-    allItems.push(...items);
-    totalItems = pagination.items;
-    hasMore = page < pagination.pages;
-    page++;
-  }
+  const { items, totalItems } = await getCollectionAll(100, 20);
 
   return (
     <div>
@@ -28,13 +18,13 @@ export default async function CollectionPage() {
         </p>
       </div>
 
-      {allItems.length === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
           <Disc3 className="w-16 h-16 mb-4 opacity-50" />
           <p>No records in your collection yet</p>
         </div>
       ) : (
-        <CollectionGrid items={allItems} />
+        <CollectionGrid items={items} />
       )}
     </div>
   );
