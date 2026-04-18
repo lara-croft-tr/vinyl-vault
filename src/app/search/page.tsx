@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { Search, Disc3, Heart, Plus, Loader2, ExternalLink, Library, AlertTriangle, X } from 'lucide-react';
 import { ReleaseDetailModal } from '@/components/ReleaseDetailModal';
+
+// Must match server-side normalization in /api/collection/keys and
+// /api/collection/check-duplicate
+const normalize = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
 
 interface SearchResult {
   id: number;
@@ -77,6 +81,40 @@ export default function SearchPage() {
   const [addedToCollection, setAddedToCollection] = useState<Set<number>>(new Set());
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarning | null>(null);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+
+  // Hide-owned filter: lazy-fetch collection keys once on mount
+  const [collectionKeys, setCollectionKeys] = useState<Set<string> | null>(null);
+  const [hideOwned, setHideOwned] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/collection/keys')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.keys)) {
+          setCollectionKeys(new Set<string>(data.keys));
+        }
+      })
+      .catch(() => {
+        /* silent */
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredResults = useMemo(() => {
+    if (!hideOwned || !collectionKeys || collectionKeys.size === 0) {
+      return results;
+    }
+    return results.filter((result) => {
+      const parts = result.title.split(' - ');
+      if (parts.length < 2) return true;
+      const artist = parts[0];
+      const album = parts.slice(1).join(' - ');
+      return !collectionKeys.has(`${normalize(artist)}|${normalize(album)}`);
+    });
+  }, [results, hideOwned, collectionKeys]);
+
+  const hiddenCount = results.length - filteredResults.length;
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,8 +356,32 @@ export default function SearchPage() {
       </form>
 
       {results.length > 0 && (
+        <>
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <p className="text-sm text-zinc-400">
+              {filteredResults.length} result{filteredResults.length === 1 ? '' : 's'}
+              {hiddenCount > 0 && ` (${hiddenCount} hidden - already in collection)`}
+            </p>
+            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hideOwned}
+                onChange={(e) => setHideOwned(e.target.checked)}
+                disabled={!collectionKeys}
+                className="accent-purple-500 w-4 h-4"
+              />
+              <Library className="w-4 h-4 text-zinc-500" />
+              Hide records already in my collection
+              {!collectionKeys && <span className="text-zinc-600 text-xs">(loading…)</span>}
+            </label>
+          </div>
+          {filteredResults.length === 0 ? (
+            <div className="text-center py-12 text-zinc-500">
+              All {results.length} results are already in your collection.
+            </div>
+          ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {results.map((result) => {
+          {filteredResults.map((result) => {
             const isCheckingOrAdding = checkingDuplicate === result.id || addingCollection === result.id;
             
             return (
@@ -407,6 +469,8 @@ export default function SearchPage() {
             );
           })}
         </div>
+          )}
+        </>
       )}
 
       {!loading && results.length === 0 && query && (
