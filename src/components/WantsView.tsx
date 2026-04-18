@@ -599,10 +599,30 @@ function WantsRow({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving
   const format = info.formats[0];
   const formatShort = format ? (format.descriptions?.[0] || format.name) : 'Vinyl';
 
+  const subfields = (
+    <div className="flex items-center gap-2 text-xs text-zinc-500 truncate">
+      {info.year ? <span className="tabular-nums">{info.year}</span> : null}
+      {info.year && <span className="text-zinc-700">·</span>}
+      <span>{formatShort}</span>
+      {extras?.country && (
+        <>
+          <span className="text-zinc-700">·</span>
+          <span>{getCountryFlag(extras.country)} {getCountryShort(extras.country)}</span>
+        </>
+      )}
+      {info.genres?.[0] && (
+        <>
+          <span className="text-zinc-700">·</span>
+          <span className="text-purple-400/80">{info.genres[0]}</span>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div
       onClick={onOpenDetails}
-      className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+      className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 cursor-pointer transition-colors"
     >
       <div className="w-12 h-12 relative rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
         {info.cover_image ? (
@@ -612,28 +632,14 @@ function WantsRow({ item, onOpenDetails, onRemove, onAddToCollection, isRemoving
         )}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm text-white truncate" title={`${artist} - ${info.title}`}>
+      <div className="flex-1 min-w-0 flex items-center gap-4">
+        <p className="font-medium text-base text-white truncate min-w-0 flex-1" title={`${artist} - ${info.title}`}>
           <span className="text-zinc-400">{artist}</span>
-          <span className="text-zinc-600 mx-1">—</span>
+          <span className="text-zinc-600 mx-1.5">—</span>
           <span>{info.title}</span>
         </p>
-        <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5 truncate">
-          {info.year ? <span>{info.year}</span> : null}
-          {info.year && <span className="text-zinc-700">·</span>}
-          <span>{formatShort}</span>
-          {extras?.country && (
-            <>
-              <span className="text-zinc-700">·</span>
-              <span>{getCountryFlag(extras.country)} {getCountryShort(extras.country)}</span>
-            </>
-          )}
-          {info.genres?.[0] && (
-            <>
-              <span className="text-zinc-700">·</span>
-              <span className="text-purple-400/80">{info.genres[0]}</span>
-            </>
-          )}
+        <div className="hidden md:block flex-shrink min-w-0 max-w-[50%]">
+          {subfields}
         </div>
       </div>
 

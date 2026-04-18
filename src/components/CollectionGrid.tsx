@@ -550,10 +550,36 @@ function RecordRow({ item, onOpenDetails, extras }: { item: CollectionItem; onOp
     : 'Vinyl';
   const mediaCondition = item.notes?.find((n) => n.field_id === 1)?.value;
 
+  const subfields = (
+    <div className="flex items-center gap-2 text-xs text-zinc-500 truncate">
+      {info.year ? <span className="tabular-nums">{info.year}</span> : null}
+      {info.year && <span className="text-zinc-700">·</span>}
+      <span>{formatShort}</span>
+      {extras?.country && (
+        <>
+          <span className="text-zinc-700">·</span>
+          <span>{getCountryFlag(extras.country)} {getCountryShort(extras.country)}</span>
+        </>
+      )}
+      {info.genres?.[0] && (
+        <>
+          <span className="text-zinc-700">·</span>
+          <span className="text-purple-400/80">{info.genres[0]}</span>
+        </>
+      )}
+      {mediaCondition && (
+        <>
+          <span className="text-zinc-700">·</span>
+          <span className="text-purple-400/80">{formatCondition(mediaCondition)}</span>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div
       onClick={onOpenDetails}
-      className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+      className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 cursor-pointer transition-colors"
     >
       <div className="w-12 h-12 relative rounded bg-zinc-800 flex-shrink-0 overflow-hidden">
         {info.cover_image ? (
@@ -563,36 +589,14 @@ function RecordRow({ item, onOpenDetails, extras }: { item: CollectionItem; onOp
         )}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <p className="font-medium text-sm text-white truncate" title={`${artist} - ${info.title}`}>
-            <span className="text-zinc-400">{artist}</span>
-            <span className="text-zinc-600 mx-1">—</span>
-            <span>{info.title}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5 truncate">
-          {info.year ? <span>{info.year}</span> : null}
-          {info.year && <span className="text-zinc-700">·</span>}
-          <span>{formatShort}</span>
-          {extras?.country && (
-            <>
-              <span className="text-zinc-700">·</span>
-              <span>{getCountryFlag(extras.country)} {getCountryShort(extras.country)}</span>
-            </>
-          )}
-          {info.genres?.[0] && (
-            <>
-              <span className="text-zinc-700">·</span>
-              <span className="text-purple-400/80">{info.genres[0]}</span>
-            </>
-          )}
-          {mediaCondition && (
-            <>
-              <span className="text-zinc-700">·</span>
-              <span className="text-purple-400/80">{formatCondition(mediaCondition)}</span>
-            </>
-          )}
+      <div className="flex-1 min-w-0 flex items-center gap-4">
+        <p className="font-medium text-base text-white truncate min-w-0 flex-1" title={`${artist} - ${info.title}`}>
+          <span className="text-zinc-400">{artist}</span>
+          <span className="text-zinc-600 mx-1.5">—</span>
+          <span>{info.title}</span>
+        </p>
+        <div className="hidden md:block flex-shrink min-w-0 max-w-[50%]">
+          {subfields}
         </div>
       </div>
 
