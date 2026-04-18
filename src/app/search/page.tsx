@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { Search, Disc3, Heart, Plus, Loader2, ExternalLink, Library, AlertTriangle, X } from 'lucide-react';
+import { Search, Disc3, Heart, Plus, Loader2, ExternalLink, Library, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ReleaseDetailModal } from '@/components/ReleaseDetailModal';
 
 // Must match server-side normalization in /api/collection/keys and
@@ -73,6 +73,10 @@ export default function SearchPage() {
   const [decade, setDecade] = useState('');
   const [year, setYear] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [pagination, setPagination] = useState<{ page: number; pages: number; items: number; perPage: number }>({
+    page: 1, pages: 0, items: 0, perPage: 30,
+  });
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [addingWant, setAddingWant] = useState<number | null>(null);
   const [addingCollection, setAddingCollection] = useState<number | null>(null);
@@ -116,24 +120,39 @@ export default function SearchPage() {
 
   const hiddenCount = results.length - filteredResults.length;
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runSearch = async (page = 1) => {
     if (!query.trim()) return;
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: query });
+      const params = new URLSearchParams({ q: query, page: String(page) });
       if (genre && genre !== 'All Genres') params.append('genre', genre);
       if (year && /^\d{4}$/.test(year)) params.append('year', year);
       else if (decade && decade !== 'All Decades') params.append('decade', decade);
-      
+
       const res = await fetch(`/api/search?${params.toString()}`);
       const data = await res.json();
       setResults(data.results || []);
+      setPagination(data.pagination || { page, pages: 1, items: data.results?.length ?? 0, perPage: 30 });
+      setCurrentPage(page);
     } catch (error) {
       console.error('Search failed:', error);
     }
     setLoading(false);
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch(1);
+  };
+
+  const goToPage = async (page: number) => {
+    if (page < 1 || page > pagination.pages || page === currentPage) return;
+    await runSearch(page);
+    // Scroll results into view after page change
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleAddToWants = async (releaseId: number) => {
@@ -359,8 +378,16 @@ export default function SearchPage() {
         <>
           <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
             <p className="text-sm text-zinc-400">
-              {filteredResults.length} result{filteredResults.length === 1 ? '' : 's'}
-              {hiddenCount > 0 && ` (${hiddenCount} hidden - already in collection)`}
+              {pagination.items > 0 ? (
+                <>
+                  Showing {(currentPage - 1) * pagination.perPage + 1}–
+                  {Math.min(currentPage * pagination.perPage, pagination.items)} of{' '}
+                  {pagination.items.toLocaleString()} result{pagination.items === 1 ? '' : 's'}
+                </>
+              ) : (
+                <>{filteredResults.length} result{filteredResults.length === 1 ? '' : 's'}</>
+              )}
+              {hiddenCount > 0 && ` (${hiddenCount} hidden on this page - already in collection)`}
             </p>
             <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
               <input
@@ -469,6 +496,35 @@ export default function SearchPage() {
             );
           })}
         </div>
+          )}
+
+          {/* Pagination controls */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage <= 1 || loading}
+                className="inline-flex items-center gap-1 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed border border-zinc-800 text-white px-3 py-2 rounded-lg text-sm transition-colors"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+
+              <span className="text-sm text-zinc-400">
+                Page {currentPage} of {pagination.pages.toLocaleString()}
+              </span>
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage >= pagination.pages || loading}
+                className="inline-flex items-center gap-1 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed border border-zinc-800 text-white px-3 py-2 rounded-lg text-sm transition-colors"
+                aria-label="Next page"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </>
       )}

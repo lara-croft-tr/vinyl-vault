@@ -161,38 +161,46 @@ export async function removeFromCollection(folderId: number, releaseId: number, 
 }
 
 export async function searchReleases(
-  query: string, 
-  options: { type?: string; genre?: string; decade?: string; year?: string } = {}
-): Promise<BasicInfo[]> {
-  const { type = 'release', genre, decade, year } = options;
-  
+  query: string,
+  options: { type?: string; genre?: string; decade?: string; year?: string; page?: number; perPage?: number } = {},
+): Promise<{ results: BasicInfo[]; pagination: { page: number; pages: number; items: number; perPage: number } }> {
+  const { type = 'release', genre, decade, year, page = 1, perPage = 30 } = options;
+
   const params = new URLSearchParams({
     q: query,
     type,
     format: 'Vinyl',
-    per_page: '30',
+    per_page: String(perPage),
+    page: String(page),
   });
-  
+
   if (genre) {
     params.append('genre', genre);
   }
-  
+
   if (year) {
     params.append('year', year);
   } else if (decade) {
-    // Decade comes as "1980s", we need to search year range
     const startYear = parseInt(decade.replace('s', ''), 10);
     if (!isNaN(startYear)) {
       params.append('year', `${startYear}-${startYear + 9}`);
     }
   }
-  
+
   const res = await fetch(
     `${DISCOGS_BASE}/database/search?${params.toString()}`,
-    { headers }
+    { headers },
   );
   const data = await res.json();
-  return data.results || [];
+  return {
+    results: data.results || [],
+    pagination: {
+      page: data.pagination?.page ?? page,
+      pages: data.pagination?.pages ?? 1,
+      items: data.pagination?.items ?? (data.results?.length ?? 0),
+      perPage: data.pagination?.per_page ?? perPage,
+    },
+  };
 }
 
 export async function getRelease(id: number): Promise<any> {

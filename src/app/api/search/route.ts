@@ -7,14 +7,16 @@ export async function GET(request: Request) {
   const genre = searchParams.get('genre') || undefined;
   const decade = searchParams.get('decade') || undefined;
   const year = searchParams.get('year') || undefined;
-  
+  const pageParam = parseInt(searchParams.get('page') || '1', 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
   if (!query) {
-    return NextResponse.json({ results: [] });
+    return NextResponse.json({ results: [], pagination: { page: 1, pages: 0, items: 0, perPage: 30 } });
   }
-  
+
   try {
-    const results = await searchReleases(query, { genre, decade, year });
-    return NextResponse.json({ results });
+    const { results, pagination } = await searchReleases(query, { genre, decade, year, page });
+    return NextResponse.json({ results, pagination });
   } catch (error) {
     console.error('Search error:', error);
     return NextResponse.json({ error: 'Search failed' }, { status: 500 });
