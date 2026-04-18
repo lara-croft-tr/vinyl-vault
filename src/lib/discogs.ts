@@ -162,17 +162,19 @@ export async function removeFromCollection(folderId: number, releaseId: number, 
 
 export async function searchReleases(
   query: string,
-  options: { type?: string; genre?: string; decade?: string; year?: string; page?: number; perPage?: number } = {},
+  options: { type?: 'release' | 'master'; genre?: string; decade?: string; year?: string; page?: number; perPage?: number } = {},
 ): Promise<{ results: BasicInfo[]; pagination: { page: number; pages: number; items: number; perPage: number } }> {
   const { type = 'release', genre, decade, year, page = 1, perPage = 30 } = options;
 
+  // NOTE: 'format' filter is only respected on release search. Discogs
+  // master search ignores format, so omit it there.
   const params = new URLSearchParams({
     q: query,
     type,
-    format: 'Vinyl',
     per_page: String(perPage),
     page: String(page),
   });
+  if (type === 'release') params.append('format', 'Vinyl');
 
   if (genre) {
     params.append('genre', genre);

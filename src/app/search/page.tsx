@@ -12,6 +12,8 @@ const normalize = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]/g, ''
 interface SearchResult {
   id: number;
   master_id?: number;
+  main_release?: number;   // present on master-type results
+  type?: 'master' | 'release';
   title: string;
   thumb: string;
   cover_image: string;
@@ -21,6 +23,15 @@ interface SearchResult {
   genre?: string[];
   style?: string[];
   country?: string;
+}
+
+/**
+ * A search result can be a master (represents one album, de-duplicating
+ * across pressings) or a release (one specific pressing). For actions
+ * like "add to collection" we always need a release id.
+ */
+function releaseIdFor(result: SearchResult): number {
+  return result.type === 'master' && result.main_release ? result.main_release : result.id;
 }
 
 interface Duplicate {
@@ -90,6 +101,9 @@ export default function SearchPage() {
   const [collectionKeys, setCollectionKeys] = useState<Set<string> | null>(null);
   const [hideOwned, setHideOwned] = useState(false);
 
+  // Collapse multiple pressings to the canonical album by searching master records
+  const [masterOnly, setMasterOnly] = useState(true);
+
   useEffect(() => {
     let cancelled = false;
     fetch('/api/collection/keys')
@@ -126,6 +140,7 @@ export default function SearchPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ q: query, page: String(page) });
+      if (masterOnly) params.append('type', 'master');
       if (genre && genre !== 'All Genres') params.append('genre', genre);
       if (year && /^\d{4}$/.test(year)) params.append('year', year);
       else if (decade && decade !== 'All Decades') params.append('decade', decade);
@@ -155,15 +170,18 @@ export default function SearchPage() {
     }
   };
 
-  const handleAddToWants = async (releaseId: number) => {
-    setAddingWant(releaseId);
+  const handleAddToWants = async (resultId: number) => {
+    const result = results.find((r) => r.id === resultId);
+    if (!result) return;
+    const releaseId = releaseIdFor(result);
+    setAddingWant(resultId);
     try {
       await fetch('/api/wants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
       });
-      setAddedToWant(new Set([...addedToWant, releaseId]));
+      setAddedToWant(new Set([...addedToWant, resultId]));
     } catch (error) {
       console.error('Failed to add:', error);
     }
@@ -179,15 +197,17 @@ export default function SearchPage() {
     return { artist: '', title };
   };
 
-  const handleAddToCollection = async (releaseId: number, skipCheck = false) => {
-    const result = results.find(r => r.id === releaseId);
+  const handleAddToCollection = async (resultId: number, skipCheck = false) => {
+    const result = results.find((r) => r.id === resultId);
     if (!result) return;
 
+    const releaseId = releaseIdFor(result);
     const { artist, title } = extractArtistAndTitle(result.title);
 
-    // Check for duplicates first (unless skipping)
+    // Check for duplicates first (unless skipping). Duplicate check matches
+    // by artist+title, so it works identically for master or release.
     if (!skipCheck && artist) {
-      setCheckingDuplicate(releaseId);
+      setCheckingDuplicate(resultId);
       try {
         const res = await fetch('/api/collection/check-duplicate', {
           method: 'POST',
@@ -195,11 +215,11 @@ export default function SearchPage() {
           body: JSON.stringify({ artist, title }),
         });
         const data = await res.json();
-        
+
         if (data.hasDuplicate) {
           setCheckingDuplicate(null);
           setDuplicateWarning({
-            releaseId,
+            releaseId: resultId,   // track the card, not the underlying release
             title,
             artist,
             duplicates: data.duplicates,
@@ -212,15 +232,15 @@ export default function SearchPage() {
       setCheckingDuplicate(null);
     }
 
-    // Add to collection
-    setAddingCollection(releaseId);
+    // Add to collection (using the actual release id)
+    setAddingCollection(resultId);
     try {
       await fetch('/api/collection/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ releaseId }),
       });
-      setAddedToCollection(new Set([...addedToCollection, releaseId]));
+      setAddedToCollection(new Set([...addedToCollection, resultId]));
     } catch (error) {
       console.error('Failed to add:', error);
     }
@@ -246,7 +266,7 @@ export default function SearchPage() {
       {/* Release Detail Modal */}
       {selectedResult && (
         <ReleaseDetailModal
-          releaseId={selectedResult.id}
+          releaseId={releaseIdFor(selectedResult)}
           onClose={() => setSelectedResult(null)}
           basicInfo={extractBasicInfo(selectedResult)}
         />
@@ -389,18 +409,30 @@ export default function SearchPage() {
               )}
               {hiddenCount > 0 && ` (${hiddenCount} hidden on this page - already in collection)`}
             </p>
-            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={hideOwned}
-                onChange={(e) => setHideOwned(e.target.checked)}
-                disabled={!collectionKeys}
-                className="accent-purple-500 w-4 h-4"
-              />
-              <Library className="w-4 h-4 text-zinc-500" />
-              Hide records already in my collection
-              {!collectionKeys && <span className="text-zinc-600 text-xs">(loading…)</span>}
-            </label>
+            <div className="flex items-center gap-4 flex-wrap">
+              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={masterOnly}
+                  onChange={(e) => { setMasterOnly(e.target.checked); runSearch(1); }}
+                  className="accent-purple-500 w-4 h-4"
+                />
+                <Disc3 className="w-4 h-4 text-zinc-500" />
+                Master editions only
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hideOwned}
+                  onChange={(e) => setHideOwned(e.target.checked)}
+                  disabled={!collectionKeys}
+                  className="accent-purple-500 w-4 h-4"
+                />
+                <Library className="w-4 h-4 text-zinc-500" />
+                Hide records already in my collection
+                {!collectionKeys && <span className="text-zinc-600 text-xs">(loading…)</span>}
+              </label>
+            </div>
           </div>
           {filteredResults.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">
@@ -483,7 +515,9 @@ export default function SearchPage() {
                       </button>
                     )}
                     <a
-                      href={`https://www.discogs.com/release/${result.id}`}
+                      href={result.type === 'master'
+                        ? `https://www.discogs.com/master/${result.id}`
+                        : `https://www.discogs.com/release/${result.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center text-zinc-500 hover:text-white py-1.5 px-2 text-xs transition-colors"
