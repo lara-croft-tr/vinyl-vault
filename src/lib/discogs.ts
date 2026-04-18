@@ -203,8 +203,29 @@ export async function getRelease(id: number): Promise<any> {
 export async function getMarketplaceStats(releaseId: number): Promise<PriceStats> {
   const res = await fetch(
     `${DISCOGS_BASE}/marketplace/stats/${releaseId}?curr_abbr=USD`,
-    { headers }
+    { headers, next: { revalidate: 60 * 60 * 24, tags: [`marketplace:${releaseId}`] } },
   );
+  return res.json();
+}
+
+/**
+ * Discogs price_suggestions returns condition-graded median prices.
+ * Keys are standard Goldmine grades: Mint, Near Mint, VG+, VG, G+, G, F, P.
+ * Much more accurate for valuation than the global lowest_price.
+ */
+export type PriceSuggestion = { currency: string; value: number };
+export type PriceSuggestions = Partial<Record<
+  'Mint (M)' | 'Near Mint (NM or M-)' | 'Very Good Plus (VG+)' | 'Very Good (VG)' |
+  'Good Plus (G+)' | 'Good (G)' | 'Fair (F)' | 'Poor (P)',
+  PriceSuggestion
+>>;
+
+export async function getPriceSuggestions(releaseId: number): Promise<PriceSuggestions> {
+  const res = await fetch(
+    `${DISCOGS_BASE}/marketplace/price_suggestions/${releaseId}`,
+    { headers, next: { revalidate: 60 * 60 * 24 * 7, tags: [`suggestions:${releaseId}`] } },
+  );
+  if (!res.ok) return {};
   return res.json();
 }
 

@@ -135,51 +135,58 @@ export function StatsView({ items }: Props) {
   const maxStyleCount = Math.max(...sortedStyles.map(([, count]) => count), 1);
   const maxYearCount = Math.max(...sortedYears.map(({ count }) => count), 1);
 
-  // Load collection values
+  // Load collection values - batches the request to the server which
+  // handles parallel fetching, condition-graded pricing, and caching.
   const loadValues = async () => {
     setLoadingValues(true);
+    setLoadingProgress(0);
+
+    const sampleItems = sampleSize === -1 ? items : items.slice(0, sampleSize);
+    const batchSize = 30; // server uses concurrency 6 inside each batch
+
     let totalLow = 0;
     let totalMid = 0;
     let totalHigh = 0;
     let priceCount = 0;
     let processed = 0;
 
-    // Sample items for value estimation
-    const sampleItems = sampleSize === -1 ? items : items.slice(0, sampleSize);
-    setLoadingProgress(0);
-    
-    for (const item of sampleItems) {
+    for (let i = 0; i < sampleItems.length; i += batchSize) {
+      const slice = sampleItems.slice(i, i + batchSize);
+      const ids = slice.map((it) => it.basic_information.id).join(',');
       try {
-        const res = await fetch(`/api/stats/value?releaseId=${item.basic_information.id}`);
+        const res = await fetch(`/api/stats/value?ids=${ids}`);
         const data = await res.json();
-        if (data.lowest_price?.value) {
-          totalLow += data.lowest_price.value;
-          totalMid += data.lowest_price.value * 1.3;
-          totalHigh += data.lowest_price.value * 1.8;
-          priceCount++;
+        const values: Array<{ low: number | null; mid: number | null; high: number | null }> =
+          data.values || [];
+        for (const v of values) {
+          if (v.mid !== null) {
+            totalLow += v.low ?? v.mid;
+            totalMid += v.mid;
+            totalHigh += v.high ?? v.mid * 1.3;
+            priceCount++;
+          }
         }
       } catch (e) {
-        // Skip failed items
+        // batch failed - swallow and move on
       }
-      processed++;
+      processed += slice.length;
       setLoadingProgress(processed);
-      // Small delay to avoid rate limiting
-      await new Promise(r => setTimeout(r, 100));
+
+      // Progressive update so the card populates while we go
+      if (priceCount > 0) {
+        const avgLow = totalLow / priceCount;
+        const avgMid = totalMid / priceCount;
+        const avgHigh = totalHigh / priceCount;
+        setValueData({
+          totalLow: avgLow * items.length,
+          totalMid: avgMid * items.length,
+          totalHigh: avgHigh * items.length,
+          itemCount: processed,
+          loaded: processed === sampleItems.length,
+        });
+      }
     }
 
-    // Extrapolate to full collection
-    if (priceCount > 0) {
-      const avgLow = totalLow / priceCount;
-      const avgMid = totalMid / priceCount;
-      const avgHigh = totalHigh / priceCount;
-      setValueData({
-        totalLow: avgLow * items.length,
-        totalMid: avgMid * items.length,
-        totalHigh: avgHigh * items.length,
-        itemCount: sampleItems.length,
-        loaded: true,
-      });
-    }
     setLoadingValues(false);
   };
 
