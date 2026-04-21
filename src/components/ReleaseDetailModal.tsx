@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, Search, ScrollText, Disc3, Guitar } from 'lucide-react';
+import { X, ExternalLink, Trash2, Loader2, Music, ChevronLeft, ChevronRight, Search, ScrollText, Disc3, Guitar, Apple } from 'lucide-react';
 
 interface ReleaseDetails {
   id: number;
@@ -43,6 +43,21 @@ export function ReleaseDetailModal({ releaseId, onClose, basicInfo, showRemoveBu
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsFallback, setLyricsFallback] = useState<{ searchUrl?: string; geniusUrl?: string } | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [appleMusicLoading, setAppleMusicLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const check = () => {
+      const ua = navigator.userAgent || '';
+      const uaMatch = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+      const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsMobile(uaMatch || touch);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +98,35 @@ export function ReleaseDetailModal({ releaseId, onClose, basicInfo, showRemoveBu
       setLyricsFallback({ searchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${artist} ${title} lyrics`)}` });
     }
     setLyricsLoading(false);
+  };
+
+  const openInAppleMusic = async () => {
+    const artist = (releaseDetails?.artists?.[0]?.name || '').replace(/\s*\(\d+\)\s*$/, '').trim();
+    const album = (releaseDetails?.title || '').trim();
+    if (!artist && !album) return;
+
+    const cacheKey = `am:${releaseId}`;
+    const cached = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(cacheKey) : null;
+    if (cached) {
+      window.location.href = cached;
+      return;
+    }
+
+    setAppleMusicLoading(true);
+    const term = `${artist} ${album}`.trim();
+    const searchFallback = `https://music.apple.com/search?term=${encodeURIComponent(term)}`;
+    try {
+      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&limit=1`);
+      const data = await res.json();
+      const url = data?.results?.[0]?.collectionViewUrl as string | undefined;
+      const target = url || searchFallback;
+      if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(cacheKey, target);
+      window.location.href = target;
+    } catch {
+      window.location.href = searchFallback;
+    } finally {
+      setAppleMusicLoading(false);
+    }
   };
 
   return (
@@ -299,10 +343,18 @@ export function ReleaseDetailModal({ releaseId, onClose, basicInfo, showRemoveBu
                   )}
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-4 border-t border-zinc-800">
-                    <a href={`https://www.discogs.com/release/${releaseDetails.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-lg transition-colors">
+                  <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-800">
+                    <a href={`https://www.discogs.com/release/${releaseDetails.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-lg transition-colors">
                       <ExternalLink className="w-5 h-5" />View on Discogs
                     </a>
+                    <button
+                      onClick={openInAppleMusic}
+                      disabled={appleMusicLoading}
+                      className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 bg-pink-600/20 hover:bg-pink-600/30 text-pink-400 px-4 py-3 rounded-lg transition-colors disabled:opacity-60"
+                    >
+                      {appleMusicLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Apple className="w-5 h-5" />}
+                      Apple Music
+                    </button>
                     {showRemoveButton && onRemove && (
                       <button onClick={onRemove} className="inline-flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 px-4 py-3 rounded-lg transition-colors">
                         <Trash2 className="w-5 h-5" />Remove
